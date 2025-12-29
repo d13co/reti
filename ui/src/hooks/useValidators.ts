@@ -1,4 +1,3 @@
-import { createBaseValidator } from '@/api/contracts'
 import {
   assetsQueryOptions,
   nfdQueryOptions,
@@ -15,6 +14,7 @@ import { unique } from '@/utils/tests/utils'
 import { useQueries, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import * as React from 'react'
 import { useQueuedQueries } from './useQueuedQueries'
+import { base64ToBytes } from 'algosdk'
 
 /**
  * Fetches all validator data and enrichment data in parallel.
@@ -62,10 +62,6 @@ export function useValidators(): {
     () =>
       poolBalancesQuery.data && validatorsQuery.data
         ? validatorsQuery.data
-            .map((validator, id) => ({
-              id: validatorIds[id]!,
-              ...validator,
-            }))
             .sort(({ state: { totalAlgoStaked: a } }, { state: { totalAlgoStaked: b } }) =>
               a > b ? -1 : 1,
             )
@@ -114,72 +110,94 @@ export function useValidators(): {
   const validators = React.useMemo(() => {
     if (!validatorsQuery.data) return []
 
-    const result: Validator[] = []
-
-    for (let i = 0; i < validatorIds.length; i++) {
-      const validatorId = validatorIds[i]
-
-      const { config, state, pools, nodeAssignment: nodePoolAssignment } = validatorsQuery.data[i]!
+    return validatorsQuery.data.map((baseValidator) => {
+      const validatorId = baseValidator.id
+      // we return the same instance (unless something has changed) to avoid unnecessary re-renders
+      let returnValidator = baseValidator
 
       const metrics = queryClient.getQueryData(
         validatorSingleMetricsQueryOptions(validatorId, queryClient).queryKey,
       )
 
-      if (!config || !state || !pools || !nodePoolAssignment) continue
-
-      // Create base validator
-      const baseValidator = createBaseValidator({
-        id: validatorId,
-        config,
-        state,
-        pools,
-        nodePoolAssignment,
-      })
-
       // Add enrichment data if available
-      if (baseValidator.config.rewardTokenId > 0) {
+      if (returnValidator.config.rewardTokenId > 0 && !returnValidator.rewardToken) {
         const rewardToken = assetQuery.data?.find(
-          (q) => q.index === baseValidator.config.rewardTokenId,
+          (q) => q.index === returnValidator.config.rewardTokenId,
         )
         if (rewardToken) {
           baseValidator.rewardToken = rewardToken
+
+          returnValidator = {
+            ...returnValidator,
+            ...baseValidator,
+          }
         }
       }
 
-      if (baseValidator.config.entryGatingType === GatingType.AssetId) {
-        baseValidator.gatingAssets = baseValidator.config.entryGatingAssets
+      if (
+        returnValidator.config.entryGatingType === GatingType.AssetId &&
+        (!returnValidator.gatingAssets || returnValidator.gatingAssets.length === 0)
+      ) {
+        baseValidator.gatingAssets = returnValidator.config.entryGatingAssets
           .map((assetId) => assetQuery.data?.find((q) => q.index === assetId))
           .filter(Boolean) as Asset[]
+
+        returnValidator = {
+          ...returnValidator,
+          ...baseValidator,
+        }
       }
 
-      if (baseValidator.config.nfdForInfo > 0) {
+      if (returnValidator.config.nfdForInfo > 0 && !returnValidator.nfd) {
         const nfd = nfdQueries.find(
-          (q) => q.data?.appID === Number(baseValidator.config.nfdForInfo),
+          (q) => q.data?.appID === Number(returnValidator.config.nfdForInfo),
         )?.data
         if (nfd) {
           baseValidator.nfd = nfd
+
+          returnValidator = {
+            ...returnValidator,
+            ...baseValidator,
+          }
         }
       }
 
       if (nodelyPerfQuery.data && nodelyPerfQuery.data.data) {
         const perfScore = nodelyPerfQuery.data.data.find(
-          (q) => q.validatorid === baseValidator.id.toString(),
+          (q) => q.validatorid === returnValidator.id.toString(),
         )?.perf
-        baseValidator.perf = perfScore
+        if (returnValidator.perf !== perfScore) {
+          baseValidator.perf = perfScore
+
+          returnValidator = {
+            ...returnValidator,
+            ...baseValidator,
+          }
+        }
       }
 
       // Add metrics if available
       if (metrics) {
-        baseValidator.rewardsBalance = metrics.rewardsBalance
-        baseValidator.roundsSinceLastPayout = metrics.roundsSinceLastPayout
-        baseValidator.apy = metrics.apy
-        baseValidator.extDeposits = metrics.extDeposits
+        if (
+          returnValidator.rewardsBalance !== metrics.rewardsBalance ||
+          returnValidator.roundsSinceLastPayout !== metrics.roundsSinceLastPayout ||
+          returnValidator.apy !== metrics.apy ||
+          returnValidator.extDeposits !== metrics.extDeposits
+        ) {
+          baseValidator.rewardsBalance = metrics.rewardsBalance
+          baseValidator.roundsSinceLastPayout = metrics.roundsSinceLastPayout
+          baseValidator.apy = metrics.apy
+          baseValidator.extDeposits = metrics.extDeposits
+
+          returnValidator = {
+            ...returnValidator,
+            ...baseValidator,
+          }
+        }
       }
 
-      result.push(baseValidator)
-    }
-
-    return result
+      return returnValidator
+    })
   }, [validatorIds, validatorsQuery.data, assetQuery.data, nfdQueries, queuedMetricsQueries.data])
 
   const { isLoading, error } = validatorsQuery

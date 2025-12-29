@@ -61,12 +61,7 @@ function Dashboard() {
             constraints={constraints}
             isLoading={validatorsLoading || stakesQuery.isLoading}
           />
-          <ValidatorTable
-            validators={validators}
-            stakesByValidator={stakesByValidator}
-            constraints={constraints}
-            isLoading={validatorsLoading}
-          />
+          <ValidatorTable validators={validators} isLoading={validatorsLoading} />
         </div>
       </PageMain>
     </>
