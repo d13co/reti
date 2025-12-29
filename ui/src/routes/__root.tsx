@@ -1,6 +1,7 @@
 import { blockTimeQueryOptions, mbrAndProtocolConstraintsQueryOptions } from '@/api/queries'
 import { Layout } from '@/components/Layout'
 import { useCheckForUpdates } from '@/hooks/useCheckForUpdates'
+import { ValidatorModalsProvider } from '@/providers/ValidatorModalsProvider'
 import { QueryClient } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { createRootRouteWithContext, Outlet } from '@tanstack/react-router'
@@ -16,13 +17,7 @@ export const Route = createRootRouteWithContext<{
       mbrAndProtocolConstraintsQueryOptions,
     }
   },
-  loader: ({
-    context: {
-      queryClient,
-      blockTimeQueryOptions,
-      mbrAndProtocolConstraintsQueryOptions: mbrQueryOptions,
-    },
-  }) => {
+  loader: ({ context: { queryClient, blockTimeQueryOptions } }) => {
     queryClient.ensureQueryData(mbrAndProtocolConstraintsQueryOptions)
     queryClient.ensureQueryData(blockTimeQueryOptions)
   },
@@ -36,7 +31,7 @@ function Root() {
   useCheckForUpdates()
 
   return (
-    <>
+    <ValidatorModalsProvider>
       <Layout>
         <Outlet />
       </Layout>
@@ -46,6 +41,6 @@ function Root() {
           <TanStackRouterDevtools position="bottom-right" />
         </>
       )}
-    </>
+    </ValidatorModalsProvider>
   )
 }

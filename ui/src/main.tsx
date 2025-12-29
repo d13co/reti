@@ -24,7 +24,6 @@ import { SnackbarProvider } from 'notistack'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { HelmetProvider } from 'react-helmet-async'
-import { ValidatorModalsProvider } from './providers/ValidatorModalsProvider'
 
 // use-wallet configuration
 let wallets: SupportedWallet[]
@@ -120,10 +119,8 @@ function AppProviders() {
         <QueryClientProvider client={queryClient}>
           <SnackbarProvider maxSnack={3}>
             <WalletProvider manager={walletManager}>
-              <ValidatorModalsProvider>
-                <InnerApp />
-                <WalletShortcutHandler />
-              </ValidatorModalsProvider>
+              <InnerApp />
+              <WalletShortcutHandler />
             </WalletProvider>
           </SnackbarProvider>
         </QueryClientProvider>
