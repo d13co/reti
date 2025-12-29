@@ -125,7 +125,7 @@ export async function fetchSingleValidatorInfo(validatorId: number): Promise<Gho
   console.timeEnd(`getValidator(${validatorId})`)
   return {
     ...data,
-    pools: data.poolInfo.map((poolInfo: [bigint, number, bigint], i: number) =>
+    pools: (data.poolInfo ?? []).map((poolInfo: [bigint, number, bigint], i: number) =>
       convertPoolTolocalPoolInfo(convertPoolTupleToPool(poolInfo), i + 1 /* poolId is 1-based */),
     ),
   }
@@ -137,7 +137,7 @@ export async function fetchValidatorsInfo(validatorIds: number[]): Promise<Ghost
   console.timeEnd(`getValidators(${validatorIds.length}x)`)
   return data.map((data) => ({
     ...data,
-    pools: data.poolInfo.map((poolInfo: [bigint, number, bigint], i: number) =>
+    pools: (data.poolInfo ?? []).map((poolInfo: [bigint, number, bigint], i: number) =>
       convertPoolTolocalPoolInfo(convertPoolTupleToPool(poolInfo), i + 1 /* poolId is 1-based */),
     ),
   }))
