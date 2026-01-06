@@ -4,7 +4,6 @@ import { DataTableViewOptions } from '@/components/DataTableViewOptions'
 import { DebouncedSearch } from '@/components/DebouncedSearch'
 import { Loading } from '@/components/Loading'
 import { Tooltip } from '@/components/Tooltip'
-import { ValidatorStakeDisplay } from '@/components/ValidatorStakeDisplay'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
@@ -18,10 +17,9 @@ import { ValidatorActionsCell } from '@/components/ValidatorActionsCell'
 import { ValidatorInfoRow } from '@/components/ValidatorInfoRow'
 import { ValidatorNfdDisplay } from '@/components/ValidatorNfdDisplay'
 import { ValidatorRewards } from '@/components/ValidatorRewards'
+import { ValidatorStakeDisplay } from '@/components/ValidatorStakeDisplay'
 import { ValidatorStatus } from '@/components/ValidatorStatus'
-import { Constraints } from '@/contracts/ValidatorRegistryClient'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
-import { StakerValidatorData } from '@/interfaces/staking'
 import { Validator } from '@/interfaces/validator'
 import { isSunsetted, isSunsetting } from '@/utils/contracts'
 import { dayjs } from '@/utils/dayjs'
@@ -82,46 +80,41 @@ const columns: ColumnDef<Validator>[] = [
       const validator = row.original
       const nfd = validator.nfd
 
-      // Memoize the cell content
-      const content = React.useMemo(() => {
-        return (
-          <div className="flex items-center gap-x-2 min-w-0 max-w-[10rem] xl:max-w-[16rem]">
-            {isSunsetted(validator) ? (
-              <Tooltip
-                content={`Sunset on ${dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}`}
-              >
-                <Ban className="h-5 w-5 text-muted-foreground transition-colors" />
-              </Tooltip>
-            ) : isSunsetting(validator) ? (
-              <Tooltip
-                content={`Will sunset on ${dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}`}
-              >
-                <Sunset className="h-5 w-5 text-muted-foreground transition-colors" />
-              </Tooltip>
-            ) : null}
-            {nfd ? (
-              <ValidatorNfdDisplay
-                nfd={nfd}
-                validatorId={validator.id}
-                isSunsetted={isSunsetted(validator)}
-              />
-            ) : (
-              <Link
-                to="/validators/$validatorId"
-                params={{
-                  validatorId: String(validator.id),
-                }}
-                className="link underline-offset-4 whitespace-nowrap font-mono"
-                preload="intent"
-              >
-                {ellipseAddressJsx(validator.config.owner)}
-              </Link>
-            )}
-          </div>
-        )
-      }, [validator, nfd])
-
-      return content
+      return (
+        <div className="flex items-center gap-x-2 min-w-0 max-w-[10rem] xl:max-w-[16rem]">
+          {isSunsetted(validator) ? (
+            <Tooltip
+              content={`Sunset on ${dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}`}
+            >
+              <Ban className="h-5 w-5 text-muted-foreground transition-colors" />
+            </Tooltip>
+          ) : isSunsetting(validator) ? (
+            <Tooltip
+              content={`Will sunset on ${dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}`}
+            >
+              <Sunset className="h-5 w-5 text-muted-foreground transition-colors" />
+            </Tooltip>
+          ) : null}
+          {nfd ? (
+            <ValidatorNfdDisplay
+              nfd={nfd}
+              validatorId={validator.id}
+              isSunsetted={isSunsetted(validator)}
+            />
+          ) : (
+            <Link
+              to="/validators/$validatorId"
+              params={{
+                validatorId: String(validator.id),
+              }}
+              className="link underline-offset-4 whitespace-nowrap font-mono"
+              preload="intent"
+            >
+              {ellipseAddressJsx(validator.config.owner)}
+            </Link>
+          )}
+        </div>
+      )
     },
   },
   {
