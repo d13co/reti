@@ -14,7 +14,6 @@ import { unique } from '@/utils/tests/utils'
 import { useQueries, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import * as React from 'react'
 import { useQueuedQueries } from './useQueuedQueries'
-import { base64ToBytes } from 'algosdk'
 
 /**
  * Fetches all validator data and enrichment data in parallel.
@@ -62,6 +61,7 @@ export function useValidators(): {
     () =>
       poolBalancesQuery.data && validatorsQuery.data
         ? validatorsQuery.data
+            .map((validator) => ({ ...validator })) // copy to avoid mutating original data unnecessarily
             .sort(({ state: { totalAlgoStaked: a } }, { state: { totalAlgoStaked: b } }) =>
               a > b ? -1 : 1,
             )
