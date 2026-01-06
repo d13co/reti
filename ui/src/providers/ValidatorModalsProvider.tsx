@@ -37,25 +37,27 @@ export function ValidatorModalsProvider({ children }: ValidatorModalsProviderPro
   const stakesByValidator = useStakesByValidator(activeAddress)
 
   const mbrAndConstraints = useMbrAmountsAndProtocolConstraints()
-  if (!mbrAndConstraints) return null
-  const { constraints } = mbrAndConstraints
 
   return (
     <ValidatorModalsContext.Provider value={contextValue}>
       {children}
 
-      <AddStakeModal
-        validator={addStakeValidator}
-        setValidator={setAddStakeValidator}
-        stakesByValidator={stakesByValidator}
-        constraints={constraints}
-      />
-      <UnstakeModal
-        validator={unstakeValidator}
-        setValidator={setUnstakeValidator}
-        stakesByValidator={stakesByValidator}
-      />
-      <AddPoolModal validator={addPoolValidator} setValidator={setAddPoolValidator} />
+      {mbrAndConstraints?.constraints && (
+        <>
+          <AddStakeModal
+            validator={addStakeValidator}
+            setValidator={setAddStakeValidator}
+            stakesByValidator={stakesByValidator}
+            constraints={mbrAndConstraints.constraints}
+          />
+          <UnstakeModal
+            validator={unstakeValidator}
+            setValidator={setUnstakeValidator}
+            stakesByValidator={stakesByValidator}
+          />
+          <AddPoolModal validator={addPoolValidator} setValidator={setAddPoolValidator} />
+        </>
+      )}
     </ValidatorModalsContext.Provider>
   )
 }
