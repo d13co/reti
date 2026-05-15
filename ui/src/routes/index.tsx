@@ -36,7 +36,12 @@ function Dashboard() {
   const mbrAndConstraintsQuery = useSuspenseQuery(mbrAndProtocolConstraintsQueryOptions)
   const constraints = mbrAndConstraintsQuery.data?.constraints
 
-  const { validators, isLoading: validatorsLoading, error: validatorsError } = useValidators()
+  const {
+    validators,
+    isLoading: validatorsLoading,
+    error: validatorsError,
+    dataUpdatedAt: validatorsDataUpdatedAt,
+  } = useValidators()
 
   const stakesQuery = useQuery(stakesQueryOptions(activeAddress))
   const stakesByValidator = React.useMemo(() => stakesQuery.data || [], [stakesQuery.data])
@@ -61,7 +66,11 @@ function Dashboard() {
             constraints={constraints}
             isLoading={validatorsLoading || stakesQuery.isLoading}
           />
-          <ValidatorTable validators={validators} isLoading={validatorsLoading} />
+          <ValidatorTable
+            validators={validators}
+            isLoading={validatorsLoading}
+            dataUpdatedAt={validatorsDataUpdatedAt}
+          />
         </div>
       </PageMain>
     </>

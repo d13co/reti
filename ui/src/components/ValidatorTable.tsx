@@ -48,6 +48,7 @@ import { sortRewardsFn } from '../utils/sortRewardsFn'
 interface ValidatorTableProps {
   validators: Validator[]
   isLoading: boolean
+  dataUpdatedAt: number
 }
 
 const columns: ColumnDef<Validator>[] = [
@@ -221,7 +222,7 @@ const columns: ColumnDef<Validator>[] = [
   },
 ]
 
-export function ValidatorTable({ validators, isLoading }: ValidatorTableProps) {
+export function ValidatorTable({ validators, isLoading, dataUpdatedAt }: ValidatorTableProps) {
   // Persistent column sorting state
   const [sorting, setSorting] = useLocalStorage<SortingState>('validator-sorting', [
     { id: 'stake', desc: true },
@@ -306,21 +307,19 @@ export function ValidatorTable({ validators, isLoading }: ValidatorTableProps) {
     },
   })
 
-  // The following are memo-ized based on the first validator in the list changing,
-  // which is a simple way to trigger re-calculation when the data re-fetches.
-  // useValidators does return stable instances, so this should be sufficient.
-  // Pre-filtered count of sunsetted validators
+  // Keyed on the base validators query's dataUpdatedAt so these counts only
+  // recompute when the underlying batch fetch refreshes, not on every
+  // enrichment pass (rewards / NFD / metrics / perf).
   const sunsetCount = React.useMemo(
     () => table.getPreFilteredRowModel().rows.filter((row) => isSunsetted(row.original)).length,
-    [validators?.at(0)],
+    [dataUpdatedAt],
   )
 
-  // Pre-filtered count of ineligible validators
   const ineligibleCount = React.useMemo(() => {
     return table
       .getPreFilteredRowModel()
       .rows.filter((row) => row.original.state.totalAlgoStaked < MIN_ELIGIBLE_STAKE).length
-  }, [validators?.at(0)])
+  }, [dataUpdatedAt])
 
   return (
     <>
