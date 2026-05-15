@@ -41,6 +41,7 @@ import {
   useReactTable,
   VisibilityState,
 } from '@tanstack/react-table'
+import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { Ban, ChevronRight, Sunset } from 'lucide-react'
 import * as React from 'react'
 import { sortRewardsFn } from '../utils/sortRewardsFn'
@@ -321,6 +322,51 @@ export function ValidatorTable({ validators, isLoading, dataUpdatedAt }: Validat
       .rows.filter((row) => row.original.state.totalAlgoStaked < MIN_ELIGIBLE_STAKE).length
   }, [dataUpdatedAt])
 
+  // Window-scrolled virtualization. Each virtual item is one validator row;
+  // a single <tbody> per item wraps the main row + optional expansion row so
+  // both are measured together and the (variable) total height is correct.
+  const tableContainerRef = React.useRef<HTMLDivElement>(null)
+  // scrollMargin needs to reflect the table's absolute Y in the document so
+  // the window virtualizer knows where the list begins. Held in state so
+  // changes trigger a re-render of the virtualizer.
+  const [scrollMargin, setScrollMargin] = React.useState(0)
+
+  React.useLayoutEffect(() => {
+    const measure = () => {
+      const el = tableContainerRef.current
+      if (!el) return
+      const top = el.getBoundingClientRect().top + window.scrollY
+      setScrollMargin((prev) => (Math.abs(prev - top) > 0.5 ? top : prev))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(document.body)
+    window.addEventListener('resize', measure)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [])
+
+  const { rows } = table.getRowModel()
+  const visibleColumnCount = table.getVisibleFlatColumns().length
+
+  const rowVirtualizer = useWindowVirtualizer({
+    count: rows.length,
+    estimateSize: () => 55,
+    overscan: 5,
+    getItemKey: (index) => rows[index].id,
+    scrollMargin,
+  })
+
+  const virtualItems = rowVirtualizer.getVirtualItems()
+  const totalSize = rowVirtualizer.getTotalSize()
+  // virtualItem.start / .end and getTotalSize include scrollMargin, so subtract
+  // it for the leading padding (trailing cancels out: totalSize - last.end).
+  const paddingTop = virtualItems.length > 0 ? virtualItems[0].start - scrollMargin : 0
+  const paddingBottom =
+    virtualItems.length > 0 ? totalSize - virtualItems[virtualItems.length - 1].end : 0
+
   return (
     <>
       <div>
@@ -374,7 +420,7 @@ export function ValidatorTable({ validators, isLoading, dataUpdatedAt }: Validat
             </div>
           </div>
         </div>
-        <div className="rounded-md border">
+        <div ref={tableContainerRef} className="rounded-md border">
           <Table className="border-collapse border-spacing-0">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -391,40 +437,65 @@ export function ValidatorTable({ validators, isLoading, dataUpdatedAt }: Validat
                 </TableRow>
               ))}
             </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <React.Fragment key={row.id}>
-                    <TableRow
-                      data-state={row.getIsSelected() && 'selected'}
-                      className={cn({
-                        'text-foreground/50': isSunsetted(row.original),
-                        'border-b-0 bg-muted/25': row.getIsExpanded(),
-                      })}
+            {rows.length > 0 ? (
+              <>
+                {paddingTop > 0 && (
+                  <tbody aria-hidden="true">
+                    <tr>
+                      <td colSpan={visibleColumnCount} style={{ height: paddingTop }} />
+                    </tr>
+                  </tbody>
+                )}
+                {virtualItems.map((virtualRow) => {
+                  const row = rows[virtualRow.index]
+                  return (
+                    <tbody
+                      key={row.id}
+                      data-index={virtualRow.index}
+                      ref={(el) => {
+                        if (el) rowVirtualizer.measureElement(el)
+                      }}
                     >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id} className="first:pr-0">
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                    {row.getIsExpanded() && (
-                      <TableRow className="bg-muted/50 hover:bg-muted/50">
-                        <TableCell colSpan={row.getVisibleCells().length} className="p-0">
-                          <ValidatorInfoRow validator={row.original} />
-                        </TableCell>
+                      <TableRow
+                        data-state={row.getIsSelected() && 'selected'}
+                        className={cn({
+                          'text-foreground/50': isSunsetted(row.original),
+                          'border-b-0 bg-muted/25': row.getIsExpanded(),
+                        })}
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id} className="first:pr-0">
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        ))}
                       </TableRow>
-                    )}
-                  </React.Fragment>
-                ))
-              ) : (
+                      {row.getIsExpanded() && (
+                        <TableRow className="bg-muted/50 hover:bg-muted/50">
+                          <TableCell colSpan={row.getVisibleCells().length} className="p-0">
+                            <ValidatorInfoRow validator={row.original} />
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </tbody>
+                  )
+                })}
+                {paddingBottom > 0 && (
+                  <tbody aria-hidden="true">
+                    <tr>
+                      <td colSpan={visibleColumnCount} style={{ height: paddingBottom }} />
+                    </tr>
+                  </tbody>
+                )}
+              </>
+            ) : (
+              <TableBody>
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={columns.length} className="h-24 text-center">
                     {isLoading ? 'Loading...' : 'No results'}
                   </TableCell>
                 </TableRow>
-              )}
-            </TableBody>
+              </TableBody>
+            )}
           </Table>
         </div>
       </div>
