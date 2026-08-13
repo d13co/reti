@@ -64,6 +64,7 @@
     "@tanstack/react-query-devtools": "5.59.0",
     "@tanstack/react-router": "1.63.2",
     "@tanstack/react-table": "8.20.5",
+    "@tanstack/react-virtual": "^3.13.24",
     "@tanstack/router-devtools": "1.63.2",
     "@tremor/react": "3.18.3",
     "@txnlab/use-wallet-react": "4.3.0",
