@@ -94,11 +94,11 @@ importers:
   ui:
     dependencies:
       '@algorandfoundation/algokit-utils':
-        specifier: 9.2.0
-        version: 9.2.0(algosdk@3.5.2)
+        specifier: 9.2.2
+        version: 9.2.2(algosdk@3.5.2)
       '@algorandfoundation/xgov-clients':
         specifier: ^3.0.1
-        version: 3.0.1(@algorandfoundation/algokit-utils@9.2.0(algosdk@3.5.2))(algosdk@3.5.2)
+        version: 3.0.1(@algorandfoundation/algokit-utils@9.2.2(algosdk@3.5.2))(algosdk@3.5.2)
       '@blockshake/defly-connect':
         specifier: 1.2.1
         version: 1.2.1(algosdk@3.5.2)
@@ -253,8 +253,8 @@ importers:
         specifier: 7.53.0
         version: 7.53.0(react@18.3.1)
       reti-ghost-sdk:
-        specifier: '=0.1.3'
-        version: 0.1.3(@algorandfoundation/algokit-utils@9.2.0(algosdk@3.5.2))(algosdk@3.5.2)
+        specifier: 0.2.0
+        version: 0.2.0(@algorandfoundation/algokit-utils@9.2.2(algosdk@3.5.2))(algosdk@3.5.2)
       sonner:
         specifier: 1.5.0
         version: 1.5.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -384,9 +384,9 @@ packages:
     peerDependencies:
       algosdk: ^3.0.0
 
-  '@algorandfoundation/algokit-utils@9.2.0':
-    resolution: {integrity: sha512-jILpK3PlSJ55crS8+Dl7iIiADEj/VowokTGSVEEneDG41XM3jMmogGVpCNipBil/YAGC2eh2yc4l9iHnfQdT/g==}
-    engines: {node: '>=20.0'}
+  '@algorandfoundation/algokit-utils@9.2.2':
+    resolution: {integrity: sha512-3UWFF/vNJNEAGK4w+ZRSOGs1tbsDYtom3L3mpUBqb0J6mWif/c1Z36emCC2gV1s+XKOKDtgodqqI7cLWf7FGAQ==}
+    engines: {node: '>=22.0'}
     peerDependencies:
       algosdk: ^3.5.2
 
@@ -4137,10 +4137,6 @@ packages:
     resolution: {integrity: sha512-LaNjtRWUBY++zB5nE/NwcaoMylSPk+S+ZHNB1TzdbMJMny6dynpAGt7X/tl/QYq3TIeE6nxHppbo2LGymrG5Pw==}
     engines: {node: '>=10'}
 
-  p-map@7.0.4:
-    resolution: {integrity: sha512-tkAQEw8ysMzmkhgw8k+1U/iPhWNhykKnSk4Rd5zLoPJCuJaGRPo6YposrZgaxHKzDHdDWWZvE/Sk7hsL2X/CpQ==}
-    engines: {node: '>=18'}
-
   p-queue@8.1.0:
     resolution: {integrity: sha512-mxLDbbGIBEXTJL0zEx8JIylaj3xQ7Z/7eEVjcF9fJX4DBiH9oqe+oahYnlKKxm0Ci9TlWTyhSHgygxMxjIB2jw==}
     engines: {node: '>=18'}
@@ -4599,8 +4595,8 @@ packages:
     resolution: {integrity: sha512-oKWePCxqpd6FlLvGV1VU0x7bkPmmCNolxzjMf4NczoDnQcIWrAF+cPtZn5i6n+RfD2d9i0tzpKnG6Yk168yIyw==}
     hasBin: true
 
-  reti-ghost-sdk@0.1.3:
-    resolution: {integrity: sha512-0+ZOx82qPevsN8hl+P3vW0xqY4ras//6sewVsyFMoWgnlHHXJ9iIEz8axOyKFRy3LYguO4fwsYuNxFZo6Y24ug==}
+  reti-ghost-sdk@0.2.0:
+    resolution: {integrity: sha512-IQAxx/2FuB748/rC4RqR6jG2CqrbAihf/9P5fCfvytrSyciXC2mx1wBEAiLOj1UA545LlLe3ACxm4mi/eF7GvQ==}
     peerDependencies:
       '@algorandfoundation/algokit-utils': ^9.2.0
       algosdk: ^3.5.2
@@ -5467,7 +5463,7 @@ snapshots:
       algosdk: 3.4.0
       buffer: 6.0.3
 
-  '@algorandfoundation/algokit-utils@9.2.0(algosdk@3.5.2)':
+  '@algorandfoundation/algokit-utils@9.2.2(algosdk@3.5.2)':
     dependencies:
       algosdk: 3.5.2
       buffer: 6.0.3
@@ -5490,9 +5486,9 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@algorandfoundation/xgov-clients@3.0.1(@algorandfoundation/algokit-utils@9.2.0(algosdk@3.5.2))(algosdk@3.5.2)':
+  '@algorandfoundation/xgov-clients@3.0.1(@algorandfoundation/algokit-utils@9.2.2(algosdk@3.5.2))(algosdk@3.5.2)':
     dependencies:
-      '@algorandfoundation/algokit-utils': 9.2.0(algosdk@3.5.2)
+      '@algorandfoundation/algokit-utils': 9.2.2(algosdk@3.5.2)
       algosdk: 3.5.2
 
   '@alloc/quick-lru@5.2.0': {}
@@ -9623,8 +9619,6 @@ snapshots:
     dependencies:
       p-limit: 3.1.0
 
-  p-map@7.0.4: {}
-
   p-queue@8.1.0:
     dependencies:
       eventemitter3: 5.0.1
@@ -10079,11 +10073,10 @@ snapshots:
       path-parse: 1.0.7
       supports-preserve-symlinks-flag: 1.0.0
 
-  reti-ghost-sdk@0.1.3(@algorandfoundation/algokit-utils@9.2.0(algosdk@3.5.2))(algosdk@3.5.2):
+  reti-ghost-sdk@0.2.0(@algorandfoundation/algokit-utils@9.2.2(algosdk@3.5.2))(algosdk@3.5.2):
     dependencies:
-      '@algorandfoundation/algokit-utils': 9.2.0(algosdk@3.5.2)
+      '@algorandfoundation/algokit-utils': 9.2.2(algosdk@3.5.2)
       algosdk: 3.5.2
-      p-map: 7.0.4
 
   reusify@1.0.4: {}
 
