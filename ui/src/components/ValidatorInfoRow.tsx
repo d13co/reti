@@ -1,6 +1,7 @@
 import { DisplayAsset } from '@/components/DisplayAsset'
 import { Constraints } from '@/contracts/ValidatorRegistryClient'
 import { useBlockTime } from '@/hooks/useBlockTime'
+import { useMbrAmountsAndProtocolConstraints } from '@/hooks/useMbrAmountsAndProtocolConstraints'
 import { useXGovs } from '@/hooks/useXGovs'
 import { Validator } from '@/interfaces/validator'
 import { calculateMaxStakers } from '@/utils/contracts'
@@ -11,11 +12,15 @@ import { getApplicationAddress } from 'algosdk'
 
 interface ValidatorInfoRowProps {
   validator: Validator
-  constraints: Constraints
 }
 
-export function ValidatorInfoRow({ validator, constraints }: ValidatorInfoRowProps) {
+export function ValidatorInfoRow({ validator }: ValidatorInfoRowProps) {
   const blockTime = useBlockTime()
+  const mbrAmountAndConstraints = useMbrAmountsAndProtocolConstraints()
+
+  if (!mbrAmountAndConstraints) return null
+  const { constraints } = mbrAmountAndConstraints
+
   const pools = validator.pools.map((p) => getApplicationAddress(p.poolAppId).toString())
   const xgovs = useXGovs(pools)
   const numEnrolled = xgovs.data ? Object.keys(xgovs.data).length : 0

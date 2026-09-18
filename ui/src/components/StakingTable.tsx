@@ -1,20 +1,3 @@
-import { useQueryClient } from '@tanstack/react-query'
-import { Link, useRouter } from '@tanstack/react-router'
-import {
-  ColumnDef,
-  ColumnFiltersState,
-  flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getSortedRowModel,
-  SortingState,
-  useReactTable,
-  VisibilityState,
-} from '@tanstack/react-table'
-import { useWallet } from '@txnlab/use-wallet-react'
-import { Ban, FlaskConical, MessageCircleWarning, MoreHorizontal, Sunset } from 'lucide-react'
-import * as React from 'react'
-import { AddStakeModal } from '@/components/AddStakeModal'
 import { AlgoDisplayAmount } from '@/components/AlgoDisplayAmount'
 import { ClaimTokens } from '@/components/ClaimTokens'
 import { DataTableColumnHeader } from '@/components/DataTableColumnHeader'
@@ -39,10 +22,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { UnstakeModal } from '@/components/UnstakeModal'
 import { Constraints } from '@/contracts/ValidatorRegistryClient'
 import { StakerValidatorData } from '@/interfaces/staking'
 import { Validator } from '@/interfaces/validator'
+import { useValidatorModals } from '@/providers/ValidatorModalsProvider'
 import {
   calculateRewardEligibility,
   canManageValidator,
@@ -57,6 +40,22 @@ import { ellipseAddressJsx } from '@/utils/ellipseAddress'
 import { formatAssetAmount } from '@/utils/format'
 import { globalFilterFn } from '@/utils/table'
 import { cn } from '@/utils/ui'
+import { useQueryClient } from '@tanstack/react-query'
+import { Link, useRouter } from '@tanstack/react-router'
+import {
+  ColumnDef,
+  ColumnFiltersState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  SortingState,
+  useReactTable,
+  VisibilityState,
+} from '@tanstack/react-table'
+import { useWallet } from '@txnlab/use-wallet-react'
+import { Ban, FlaskConical, MessageCircleWarning, MoreHorizontal, Sunset } from 'lucide-react'
+import * as React from 'react'
 
 interface StakingTableProps {
   validators: Validator[]
@@ -75,8 +74,7 @@ export function StakingTable({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
 
-  const [addStakeValidator, setAddStakeValidator] = React.useState<Validator | null>(null)
-  const [unstakeValidator, setUnstakeValidator] = React.useState<Validator | null>(null)
+  const { openAddStake, openUnstake } = useValidatorModals()
 
   const { transactionSigner, activeAddress } = useWallet()
 
@@ -220,7 +218,7 @@ export function StakingTable({
             <Button
               size="sm"
               className={cn({ hidden: isSunsetted(validator) })}
-              onClick={() => setAddStakeValidator(validator)}
+              onClick={() => openAddStake(validator)}
               disabled={stakingDisabled}
             >
               Stake
@@ -228,7 +226,7 @@ export function StakingTable({
             <Button
               size="sm"
               variant="secondary"
-              onClick={() => setUnstakeValidator(validator)}
+              onClick={() => openUnstake(validator)}
               disabled={unstakingDisabled}
             >
               Unstake
@@ -244,13 +242,13 @@ export function StakingTable({
               <DropdownMenuContent align="end" className="w-40">
                 <DropdownMenuGroup>
                   <DropdownMenuItem
-                    onClick={() => setAddStakeValidator(validator)}
+                    onClick={() => openAddStake(validator)}
                     disabled={stakingDisabled}
                   >
                     Stake
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => setUnstakeValidator(validator)}
+                    onClick={() => openUnstake(validator)}
                     disabled={unstakingDisabled}
                   >
                     Unstake
@@ -372,18 +370,6 @@ export function StakingTable({
           </div>
         )}
       </div>
-
-      <AddStakeModal
-        validator={addStakeValidator}
-        setValidator={setAddStakeValidator}
-        stakesByValidator={stakesByValidator}
-        constraints={constraints}
-      />
-      <UnstakeModal
-        validator={unstakeValidator}
-        setValidator={setUnstakeValidator}
-        stakesByValidator={stakesByValidator}
-      />
     </>
   )
 }

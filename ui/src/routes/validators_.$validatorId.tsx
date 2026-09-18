@@ -11,7 +11,7 @@ import { ValidatorDetails } from '@/components/ValidatorDetails'
 import { DetailsHeader } from '@/components/ValidatorDetails/DetailsHeader'
 import { XGovSignUpBanner } from '@/components/XGovSignUpBanner'
 import { useValidator } from '@/hooks/useValidator'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, ErrorComponent } from '@tanstack/react-router'
 import { useWallet } from '@txnlab/use-wallet-react'
 
@@ -48,7 +48,9 @@ function Dashboard() {
   const validator = useValidator(Number(validatorId))
   const { activeAddress } = useWallet()
 
-  const mbrAndProtocolConstraintsQuery = useQuery(mbrAndProtocolConstraintsQueryOptions)
+  // Suspense: constraints are required below and the root loader only starts this
+  // fetch without awaiting it, so plain useQuery data can be undefined on first render
+  const mbrAndProtocolConstraintsQuery = useSuspenseQuery(mbrAndProtocolConstraintsQueryOptions)
   const stakesQuery = useQuery(stakesQueryOptions(activeAddress))
   const stakesByValidator = stakesQuery.data || []
 
@@ -62,7 +64,7 @@ function Dashboard() {
       <PageMain>
         <ValidatorDetails
           validator={validator!}
-          constraints={mbrAndProtocolConstraintsQuery.data!.constraints}
+          constraints={mbrAndProtocolConstraintsQuery.data.constraints}
           stakesByValidator={stakesByValidator}
         />
       </PageMain>

@@ -1,11 +1,12 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ProgressBar } from '@tremor/react'
 import { Copy } from 'lucide-react'
-import { nfdLookupQueryOptions } from '@/api/queries'
+import { nfdLookupQueryOptions, validatorSingleMetricsQueryOptions } from '@/api/queries'
 import { AlgoDisplayAmount } from '@/components/AlgoDisplayAmount'
 import { Loading } from '@/components/Loading'
 import { NfdDisplay } from '@/components/NfdDisplay'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Constraints } from '@/contracts/ValidatorRegistryClient'
 import { LocalPoolInfo, Validator } from '@/interfaces/validator'
 import { calculateMaxAlgoPerPool } from '@/utils/contracts'
@@ -31,9 +32,15 @@ export function StakingPoolInfo({
   poolName,
   isOwner,
 }: StakingPoolInfoProps) {
+  const queryClient = useQueryClient()
+
   const poolNfdQuery = useQuery(
     nfdLookupQueryOptions(poolInfo?.poolAddress || null, { view: 'thumbnail' }, { cache: false }),
   )
+
+  // Fetched here (not in useValidator) so the slow Nodely APY endpoint never blocks page render
+  const metricsQuery = useQuery(validatorSingleMetricsQueryOptions(validator.id, queryClient))
+  const avgApy = metricsQuery.data?.apy
 
   const numPools = validator.state.numPools
   const maxStakePerPool = calculateMaxAlgoPerPool(validator, constraints)
@@ -113,8 +120,10 @@ export function StakingPoolInfo({
             <div className="py-4 grid grid-cols-2 gap-4">
               <dt className="text-sm font-medium leading-6 text-muted-foreground">Avg APY</dt>
               <dd className="flex items-center gap-x-2 text-sm leading-6">
-                {validator.apy ? (
-                  `${validator.apy.toFixed(1)}%`
+                {metricsQuery.isLoading ? (
+                  <Skeleton width={48} height={16} />
+                ) : avgApy ? (
+                  `${avgApy.toFixed(1)}%`
                 ) : (
                   <span className="text-muted-foreground">--</span>
                 )}

@@ -1,3 +1,15 @@
+import ErrorBoundary from '@/components/ErrorBoundary'
+import { Toaster } from '@/components/ui/sonner'
+import { WalletShortcutHandler } from '@/components/WalletShortcutHandler'
+import { WALLETCONNECT_PROJECT_ID } from '@/constants/env'
+import { ThemeProvider } from '@/providers/ThemeProvider'
+import { routeTree } from '@/routeTree.gen'
+import '@/styles/main.css'
+import {
+  getAlgodConfigFromViteEnvironment,
+  getAlgodNetwork,
+  getKmdConfigFromViteEnvironment,
+} from '@/utils/network/getAlgoClientConfigs'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import {
@@ -12,18 +24,6 @@ import { SnackbarProvider } from 'notistack'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { HelmetProvider } from 'react-helmet-async'
-import ErrorBoundary from '@/components/ErrorBoundary'
-import { Toaster } from '@/components/ui/sonner'
-import { WalletShortcutHandler } from '@/components/WalletShortcutHandler'
-import { WALLETCONNECT_PROJECT_ID } from '@/constants/env'
-import { ThemeProvider } from '@/providers/ThemeProvider'
-import { routeTree } from '@/routeTree.gen'
-import '@/styles/main.css'
-import {
-  getAlgodConfigFromViteEnvironment,
-  getAlgodNetwork,
-  getKmdConfigFromViteEnvironment,
-} from '@/utils/network/getAlgoClientConfigs'
 
 // use-wallet configuration
 let wallets: SupportedWallet[]

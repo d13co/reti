@@ -1,29 +1,20 @@
 import { convertPoolTolocalPoolInfo, createBaseValidator } from '@/api/contracts'
-import {
-  assetsQueryOptions,
-  nfdQueryOptions,
-  validatorSingleMetricsQueryOptions,
-  validatorSingleQueryOptions,
-} from '@/api/queries'
+import { assetsQueryOptions, nfdQueryOptions, validatorSingleQueryOptions } from '@/api/queries'
 import { GatingType } from '@/constants/gating'
 import { Asset } from '@/interfaces/asset'
 import { Validator } from '@/interfaces/validator'
-import { useQueryClient, useSuspenseQueries, useSuspenseQuery } from '@tanstack/react-query'
+import { useSuspenseQueries, useSuspenseQuery } from '@tanstack/react-query'
 import * as React from 'react'
 
 /**
  * Fetches validator data and enrichment data in parallel.
+ * Metrics (APY, rewards) are intentionally not fetched here — they depend on a
+ * sometimes-unreliable Nodely APY endpoint and must not block page rendering.
+ * Components that need them query validatorSingleMetricsQueryOptions directly.
  */
 export function useValidator(validatorId: number): Validator | undefined {
-  const queryClient = useQueryClient()
-
-  // Core validator queries
-  const [validatorQuery, metricsQuery] = useSuspenseQueries({
-    queries: [
-      validatorSingleQueryOptions(validatorId),
-      validatorSingleMetricsQueryOptions(validatorId, queryClient),
-    ],
-  })
+  // Core validator query
+  const validatorQuery = useSuspenseQuery(validatorSingleQueryOptions(validatorId))
 
   const config = validatorQuery.data?.config
 
@@ -81,16 +72,8 @@ export function useValidator(validatorId: number): Validator | undefined {
       baseValidator.nfd = nfdQuery.data
     }
 
-    // Add metrics
-    if (metricsQuery.data) {
-      baseValidator.rewardsBalance = metricsQuery.data.rewardsBalance
-      baseValidator.roundsSinceLastPayout = metricsQuery.data.roundsSinceLastPayout
-      baseValidator.apy = metricsQuery.data.apy
-      baseValidator.extDeposits = metricsQuery.data.extDeposits
-    }
-
     return baseValidator
-  }, [validatorId, validatorQuery.data, nfdQuery?.data, assetQuery.data, metricsQuery.data])
+  }, [validatorId, validatorQuery.data, nfdQuery?.data, assetQuery.data])
 
   return validator
 }

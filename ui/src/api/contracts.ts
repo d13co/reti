@@ -37,7 +37,6 @@ import { sleep } from '@/utils/time'
 import { AlgoAmount } from '@algorandfoundation/algokit-utils/types/amount'
 import algosdk, { getApplicationAddress } from 'algosdk'
 import { Validator as GhostValidatorBase, PoolBalanceAndLastPayout } from 'reti-ghost-sdk'
-import { MbrAmountsAndProtocolConstraints } from 'reti-ghost-sdk/dist/generated/RetiReaderSDK'
 import { ghostSDK } from './ghostSdk'
 import { TransactionHandlerProps } from './transactionState'
 
@@ -125,7 +124,7 @@ export async function fetchSingleValidatorInfo(validatorId: number): Promise<Gho
   console.timeEnd(`getValidator(${validatorId})`)
   return {
     ...data,
-    pools: data.poolInfo.map((poolInfo: [bigint, number, bigint], i: number) =>
+    pools: (data.poolInfo ?? []).map((poolInfo: [bigint, number, bigint], i: number) =>
       convertPoolTolocalPoolInfo(convertPoolTupleToPool(poolInfo), i + 1 /* poolId is 1-based */),
     ),
   }
@@ -137,7 +136,7 @@ export async function fetchValidatorsInfo(validatorIds: number[]): Promise<Ghost
   console.timeEnd(`getValidators(${validatorIds.length}x)`)
   return data.map((data) => ({
     ...data,
-    pools: data.poolInfo.map((poolInfo: [bigint, number, bigint], i: number) =>
+    pools: (data.poolInfo ?? []).map((poolInfo: [bigint, number, bigint], i: number) =>
       convertPoolTolocalPoolInfo(convertPoolTupleToPool(poolInfo), i + 1 /* poolId is 1-based */),
     ),
   }))
@@ -340,7 +339,7 @@ export function callGetMbrAmounts(validatorClient: ValidatorRegistryClient) {
 
 export async function fetchMbrAmountsAndProtocolContraints(
   client?: ValidatorRegistryClient,
-): Promise<MbrAmountsAndProtocolConstraints> {
+) {
   try {
     return await ghostSDK.getMbrAmountsAndProtocolConstraints()
   } catch (error) {

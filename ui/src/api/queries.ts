@@ -7,6 +7,7 @@ import {
 } from '@/api/algod'
 import { algorandClient } from '@/api/clients'
 import {
+  createBaseValidator,
   fetchMbrAmountsAndProtocolContraints,
   fetchNumValidators,
   fetchPoolApy,
@@ -90,7 +91,15 @@ export const validatorsQueryOptions = (validatorIds: number[], queryClient: Quer
         const validatorId = validatorIds[i]
         queryClient.setQueryData(validatorSingleQueryKey(validatorId), validatorData)
       })
-      return data
+      return data.map(({ config, nodeAssignment, poolInfo, pools, state }) =>
+        createBaseValidator({
+          id: Number(config.id),
+          config,
+          state,
+          pools,
+          nodePoolAssignment: nodeAssignment,
+        }),
+      )
     },
     staleTime: Infinity,
     refetchInterval: 1000 * 30, // 30 seconds
