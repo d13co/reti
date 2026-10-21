@@ -4,6 +4,10 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  algosdk: file:ui/vendor/algosdk-3.8.0-dt.2.tgz
+  '@algorandfoundation/algokit-utils': file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz
+
 importers:
 
   .: {}
@@ -11,15 +15,15 @@ importers:
   contracts:
     dependencies:
       '@algorandfoundation/algokit-utils':
-        specifier: 9.1.2
-        version: 9.1.2(algosdk@3.6.0)
+        specifier: file:../ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz
+        version: file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)
       algosdk:
-        specifier: 3.6.0
-        version: 3.6.0
+        specifier: file:../ui/vendor/algosdk-3.8.0-dt.2.tgz
+        version: file:ui/vendor/algosdk-3.8.0-dt.2.tgz
     devDependencies:
       '@algorandfoundation/algokit-client-generator':
         specifier: 6.0.0
-        version: 6.0.0(@algorandfoundation/algokit-utils@9.1.2(algosdk@3.6.0))(algosdk@3.6.0)
+        version: 6.0.0(@algorandfoundation/algokit-utils@file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz))(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)
       '@algorandfoundation/tealscript':
         specifier: 0.106.1
         version: 0.106.1
@@ -63,11 +67,11 @@ importers:
   contracts/bootstrap:
     dependencies:
       '@algorandfoundation/algokit-utils':
-        specifier: 9.1.2
-        version: 9.1.2(algosdk@3.6.0)
+        specifier: file:../../ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz
+        version: file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)
       algosdk:
-        specifier: 3.6.0
-        version: 3.6.0
+        specifier: file:../../ui/vendor/algosdk-3.8.0-dt.2.tgz
+        version: file:ui/vendor/algosdk-3.8.0-dt.2.tgz
       prompts:
         specifier: ^2.4.2
         version: 2.4.2
@@ -94,20 +98,20 @@ importers:
   ui:
     dependencies:
       '@algorandfoundation/algokit-utils':
-        specifier: 9.1.2
-        version: 9.1.2(algosdk@3.6.0)
+        specifier: file:vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz
+        version: file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)
       '@algorandfoundation/xgov-clients':
         specifier: ^3.0.1
-        version: 3.0.1(@algorandfoundation/algokit-utils@9.1.2(algosdk@3.6.0))(algosdk@3.6.0)
+        version: 3.0.1(@algorandfoundation/algokit-utils@file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz))(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)
       '@blockshake/defly-connect':
         specifier: 1.2.1
-        version: 1.2.1(algosdk@3.6.0)
+        version: 1.2.1(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)
       '@hookform/resolvers':
         specifier: 3.9.0
         version: 3.9.0(react-hook-form@7.53.0(react@18.3.1))
       '@perawallet/connect':
         specifier: 1.5.2
-        version: 1.5.2(algosdk@3.6.0)
+        version: 1.5.2(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)
       '@radix-ui/react-alert-dialog':
         specifier: ^1.1.5
         version: 1.1.5(@types/react-dom@18.3.0)(@types/react@18.3.11)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -169,20 +173,20 @@ importers:
         specifier: 5.59.0
         version: 5.59.0(@tanstack/react-query@5.59.0(react@18.3.1))(react@18.3.1)
       '@tanstack/react-router':
-        specifier: 1.63.2
-        version: 1.63.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.69.1
+        version: 1.69.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/react-table':
         specifier: 8.20.5
         version: 8.20.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tanstack/router-devtools':
-        specifier: 1.63.2
-        version: 1.63.2(@tanstack/react-router@1.63.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 1.69.1
+        version: 1.69.1(@tanstack/react-router@1.69.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tremor/react':
         specifier: 3.18.3
         version: 3.18.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.13(ts-node@10.9.2(@types/node@20.16.11)(typescript@5.6.3)))
       '@txnlab/use-wallet-react':
         specifier: 4.6.0
-        version: 4.6.0(@blockshake/defly-connect@1.2.1(algosdk@3.6.0))(@perawallet/connect@1.5.2(algosdk@3.6.0))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(algosdk@3.6.0)(lute-connect@1.5.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 4.6.0(@blockshake/defly-connect@1.2.1(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz))(@perawallet/connect@1.5.2(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)(lute-connect@1.5.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@walletconnect/modal':
         specifier: 2.7.0
         version: 2.7.0(@types/react@18.3.11)(react@18.3.1)
@@ -190,8 +194,8 @@ importers:
         specifier: 2.20.2
         version: 2.20.2(typescript@5.6.3)(zod@3.23.8)
       algosdk:
-        specifier: 3.6.0
-        version: 3.6.0
+        specifier: file:vendor/algosdk-3.8.0-dt.2.tgz
+        version: file:ui/vendor/algosdk-3.8.0-dt.2.tgz
       axios:
         specifier: 1.19.0
         version: 1.19.0
@@ -252,6 +256,9 @@ importers:
       react-hook-form:
         specifier: 7.53.0
         version: 7.53.0(react@18.3.1)
+      reti-ghost-sdk:
+        specifier: file:vendor/reti-ghost-sdk-0.3.0-dt.5.tgz
+        version: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.5.tgz(@algorandfoundation/algokit-utils@file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz))(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)
       sonner:
         specifier: 1.5.0
         version: 1.5.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -278,8 +285,8 @@ importers:
         specifier: 1.48.0
         version: 1.48.0
       '@tanstack/router-vite-plugin':
-        specifier: 1.62.0
-        version: 1.62.0(vite@5.4.8(@types/node@20.16.11))
+        specifier: 1.69.1
+        version: 1.69.1(vite@5.4.8(@types/node@20.16.11))
       '@testing-library/dom':
         specifier: 10.4.0
         version: 10.4.0
@@ -372,17 +379,19 @@ packages:
 
   '@algorandfoundation/algokit-client-generator@6.0.0':
     resolution: {integrity: sha512-K6P3uqb3XCQNGYBo3PiBxTy6XUGG0BDeSph2zlaAWJTW2yu1Cidrrwt73t0JZxGJvm1b789rs57/KuoC5YK/lQ==}
+    version: 6.0.0
     engines: {node: '>=20.0'}
     hasBin: true
     peerDependencies:
       '@algorandfoundation/algokit-utils': ^9.0.0
       algosdk: ^3.2.0
 
-  '@algorandfoundation/algokit-utils@9.1.2':
-    resolution: {integrity: sha512-gZTg9H5FAce+QcT79y8Eun8by+MtlgocYjIUvP2ahh2O0U0HCcTSjVux5lQZj5+EsSaL3sR0p+BmjXnPAMplbA==}
-    engines: {node: '>=20.0'}
+  '@algorandfoundation/algokit-utils@file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz':
+    resolution: {integrity: sha512-0WooFIVF4MpfZh9XjagDzdpn46iBAV3+wVTvWS6Iy/t9rsmhHs3JZVX2YJFZCRDSrBC5BVfaYEHogg8NCyZAzA==, tarball: file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz}
+    version: 9.2.3-dt.2
+    engines: {node: '>=22.0'}
     peerDependencies:
-      algosdk: ^3.0.0
+      algosdk: ^3.5.2
 
   '@algorandfoundation/tealscript@0.106.1':
     resolution: {integrity: sha512-aQpLHfz6+f5WoTWs9U6AbFysS8dw65iCjk2jxkqE+l137i4ZQF01GC8OndTyVX97RTSwjoBay/gJ2jk1JBdyeA==}
@@ -390,6 +399,7 @@ packages:
 
   '@algorandfoundation/xgov-clients@3.0.1':
     resolution: {integrity: sha512-s/L40sVpzeVtZqbsqR3NY3qLchg4UCR8mqdxFfXy4sL6iAkvoibpdz2NrIBAglHLyD4m8H4JI3Hj1oHf7FySAQ==}
+    version: 3.0.1
     peerDependencies:
       '@algorandfoundation/algokit-utils': ^9.1.2
       algosdk: ^3.4.0
@@ -510,6 +520,7 @@ packages:
 
   '@blockshake/defly-connect@1.2.1':
     resolution: {integrity: sha512-T9wAjPTFdc8iRiDzTqmeBRCIroWLgXmqZHwnpzuchjYZXXqbnj+zge+HS7UaNunpxGVjDUNK1ah7OR6hEqtJoQ==}
+    version: 1.2.1
     peerDependencies:
       algosdk: ^3.0.0
 
@@ -1129,6 +1140,7 @@ packages:
 
   '@perawallet/connect@1.5.2':
     resolution: {integrity: sha512-Lq4nLaQBisZUkBIWirhRn4b9MjrKWvlMxfrU6On5al/14E5mm3dlnwGHhpJ88IGlnGs7JyL625LVMgUK1TOTrg==}
+    version: 1.5.2
     peerDependencies:
       algosdk: ^3.5.2
 
@@ -1871,11 +1883,11 @@ packages:
     peerDependencies:
       react: ^18 || ^19
 
-  '@tanstack/react-router@1.63.2':
-    resolution: {integrity: sha512-6Bla8LK4cu4L0atBZNNIUhQpiCgXNIa2XnrybHVbqTipWlfRJ0I71pXWuSVqGP487wNGZgVG5ITZFLR+y+NhKg==}
+  '@tanstack/react-router@1.69.1':
+    resolution: {integrity: sha512-a3yFrLLeJddn9FAKGSREbQdu9bvgMAXOq9WSRL4fWD8Qz0nVuKZ925GlCKkBByUkWdo5WlfhOYtnTTeO+5xCLg==}
     engines: {node: '>=12'}
     peerDependencies:
-      '@tanstack/router-generator': 1.58.12
+      '@tanstack/router-generator': 1.69.1
       react: '>=18'
       react-dom: '>=18'
     peerDependenciesMeta:
@@ -1907,11 +1919,11 @@ packages:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
       react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
 
-  '@tanstack/router-devtools@1.63.2':
-    resolution: {integrity: sha512-qNtjl6fbgjybVyvxPNHgx91F2JqiWLIuIoCTLVN6yX/WRGH6SfWT4SxEfWGYieHTT9YX8fsFo44F15WeStFHVg==}
+  '@tanstack/router-devtools@1.69.1':
+    resolution: {integrity: sha512-1/+8Gijz2ILl42S2AaYJ4wcpxxiwL9KVjp1NVdlgQJd63aedgNUrLLoRwKIVCbxkMmR7cLBBhf6gGa4xEltJtA==}
     engines: {node: '>=12'}
     peerDependencies:
-      '@tanstack/react-router': ^1.63.2
+      '@tanstack/react-router': ^1.69.1
       react: '>=18'
       react-dom: '>=18'
 
@@ -1934,8 +1946,8 @@ packages:
       webpack:
         optional: true
 
-  '@tanstack/router-vite-plugin@1.62.0':
-    resolution: {integrity: sha512-6DzSVAuCiy4y+IVnE7rdo/KEBcBuo7iO0fj7RwiPC5ds48T41yndNhlnxm4TX5ON9JNS/9dcxK5M/C2UwAgiRA==}
+  '@tanstack/router-vite-plugin@1.69.1':
+    resolution: {integrity: sha512-zMDYepDn2yL/MP8K5zWl93oBYsPeehoM6N4CTJCypsEa6+frKM8eNtuyEcMbIa7Ge0F/DAdLQr0AKgB5m1AXQQ==}
     engines: {node: '>=12'}
 
   '@tanstack/store@0.5.5':
@@ -2004,6 +2016,7 @@ packages:
 
   '@txnlab/use-wallet-react@4.6.0':
     resolution: {integrity: sha512-y/plCDJCNa4bMfGmAMmqGfAwrAY6e3bUwbJW/ze0ZPs+CO+mMxTsMRiaz9+1c1rMawj0d3P7F+BMoCy357AMJg==}
+    version: 4.6.0
     peerDependencies:
       '@blockshake/defly-connect': ^1.2.1
       '@magic-ext/algorand': ^24.4.2
@@ -2033,6 +2046,7 @@ packages:
 
   '@txnlab/use-wallet@4.6.0':
     resolution: {integrity: sha512-niAookAa8cpkrZsGDwQUaeLTODSd5gxSiUHaiPDiHiF/4oGKx/X/KJOFwAA/8iXOI8CTe60fbwEiKRXNIa1RvQ==}
+    version: 4.6.0
     peerDependencies:
       '@agoralabs-sh/avm-web-provider': ^1.7.0
       '@blockshake/defly-connect': ^1.2.1
@@ -2434,9 +2448,10 @@ packages:
     resolution: {integrity: sha512-08k7pBQnkaUB5p+jL7f1TRaUIlTSDE0cesFu1mD7llLao+1cAhtvvZmGE3OnisTd0xOn118QMw74SRqddqaYvw==}
     engines: {node: '>= 14'}
 
-  algosdk@3.6.0:
-    resolution: {integrity: sha512-pdM0neCgR3DasvpSPfgQKc5/hlhkSYmXjcUChePLGegA0kqA0AoLmcfMDyeREcsvHcu7rrv3Wa+RZnGa5kINwQ==}
-    engines: {node: '>=18.0.0'}
+  algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz:
+    resolution: {integrity: sha512-va5fhb2CxkIJVfh4iJPZH+p8FVhTY09te/r45ogBPfYPeB4XNUOuibgRXcPwsvl4r1pyMMAKWqg+XTxwAr+HSw==, tarball: file:ui/vendor/algosdk-3.8.0-dt.2.tgz}
+    version: 3.8.0-dt.2
+    engines: {node: '>=22.0'}
 
   ansi-escapes@4.3.2:
     resolution: {integrity: sha512-gKXj5ALrKWQLsYG9jlTRmR/xKluxHV+Z9QEwNIgCfM1/uwPMCuzVVnh5mwTd+OuBZcwSIMbqssNWRm1lE51QaQ==}
@@ -4677,6 +4692,13 @@ packages:
     resolution: {integrity: sha512-oKWePCxqpd6FlLvGV1VU0x7bkPmmCNolxzjMf4NczoDnQcIWrAF+cPtZn5i6n+RfD2d9i0tzpKnG6Yk168yIyw==}
     hasBin: true
 
+  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.5.tgz:
+    resolution: {integrity: sha512-+h4njwHDslWW+6qjWGRO0UJeEjIGSDBBszSRtCHVfBmp8Mg8vwYitrEXmFb/attvTWyXk0Hjb2WRXxzSYTrXGA==, tarball: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.5.tgz}
+    version: 0.3.0-dt.5
+    peerDependencies:
+      '@algorandfoundation/algokit-utils': '>=9.2.0'
+      algosdk: '>=3.5.2'
+
   reusify@1.0.4:
     resolution: {integrity: sha512-U9nH88a3fc/ekCF1l0/UP1IosiuIjyTh7hBvXVMHYgVcfGvt897Xguj2UOLDeI5BG2m7/uwyaLVT6fbtCwTyzw==}
     engines: {iojs: '>=1.0.0', node: '>=0.10.0'}
@@ -5249,11 +5271,6 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
 
-  use-sync-external-store@1.5.0:
-    resolution: {integrity: sha512-Rb46I4cGGVBmjamjphe8L/UnvJD+uPPtTkNvX5mZgqdbavhI4EbgIWJiIHXJ8bc/i9EQGPRh4DwEURJ552Do0A==}
-    peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-
   use-sync-external-store@1.6.0:
     resolution: {integrity: sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==}
     peerDependencies:
@@ -5530,18 +5547,18 @@ snapshots:
 
   '@adraffy/ens-normalize@1.11.0': {}
 
-  '@algorandfoundation/algokit-client-generator@6.0.0(@algorandfoundation/algokit-utils@9.1.2(algosdk@3.6.0))(algosdk@3.6.0)':
+  '@algorandfoundation/algokit-client-generator@6.0.0(@algorandfoundation/algokit-utils@file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz))(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)':
     dependencies:
-      '@algorandfoundation/algokit-utils': 9.1.2(algosdk@3.6.0)
-      algosdk: 3.6.0
+      '@algorandfoundation/algokit-utils': file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)
+      algosdk: file:ui/vendor/algosdk-3.8.0-dt.2.tgz
       chalk: 5.6.0
       change-case: 5.4.4
       commander: 14.0.0
       jsonschema: 1.5.0
 
-  '@algorandfoundation/algokit-utils@9.1.2(algosdk@3.6.0)':
+  '@algorandfoundation/algokit-utils@file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)':
     dependencies:
-      algosdk: 3.6.0
+      algosdk: file:ui/vendor/algosdk-3.8.0-dt.2.tgz
       buffer: 6.0.3
 
   '@algorandfoundation/tealscript@0.106.1':
@@ -5562,10 +5579,10 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@algorandfoundation/xgov-clients@3.0.1(@algorandfoundation/algokit-utils@9.1.2(algosdk@3.6.0))(algosdk@3.6.0)':
+  '@algorandfoundation/xgov-clients@3.0.1(@algorandfoundation/algokit-utils@file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz))(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)':
     dependencies:
-      '@algorandfoundation/algokit-utils': 9.1.2(algosdk@3.6.0)
-      algosdk: 3.6.0
+      '@algorandfoundation/algokit-utils': file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)
+      algosdk: file:ui/vendor/algosdk-3.8.0-dt.2.tgz
 
   '@alloc/quick-lru@5.2.0': {}
 
@@ -5713,12 +5730,12 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@blockshake/defly-connect@1.2.1(algosdk@3.6.0)':
+  '@blockshake/defly-connect@1.2.1(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)':
     dependencies:
       '@likecoin/qr-code-styling': 1.6.6
       '@walletconnect/client': 1.8.0
       '@walletconnect/types': 1.8.0
-      algosdk: 3.6.0
+      algosdk: file:ui/vendor/algosdk-3.8.0-dt.2.tgz
       bowser: 2.11.0
       buffer: 6.0.3
       lottie-web: 5.12.2
@@ -6229,12 +6246,12 @@ snapshots:
       '@parcel/watcher-win32-ia32': 2.4.1
       '@parcel/watcher-win32-x64': 2.4.1
 
-  '@perawallet/connect@1.5.2(algosdk@3.6.0)':
+  '@perawallet/connect@1.5.2(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)':
     dependencies:
       '@evanhahn/lottie-web-light': 5.8.1
       '@walletconnect/client': 1.8.0
       '@walletconnect/types': 1.8.0
-      algosdk: 3.6.0
+      algosdk: file:ui/vendor/algosdk-3.8.0-dt.2.tgz
       bowser: 2.11.0
       buffer: 6.0.3
       qr-code-styling: 1.6.0-rc.1
@@ -6948,7 +6965,7 @@ snapshots:
       '@tanstack/query-core': 5.59.0
       react: 18.3.1
 
-  '@tanstack/react-router@1.63.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@tanstack/react-router@1.69.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@tanstack/history': 1.61.1
       '@tanstack/react-store': 0.5.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -6962,7 +6979,7 @@ snapshots:
       '@tanstack/store': 0.5.5
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
-      use-sync-external-store: 1.5.0(react@18.3.1)
+      use-sync-external-store: 1.6.0(react@18.3.1)
 
   '@tanstack/react-store@0.8.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
@@ -6983,9 +7000,9 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
-  '@tanstack/router-devtools@1.63.2(@tanstack/react-router@1.63.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@tanstack/router-devtools@1.69.1(@tanstack/react-router@1.69.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
-      '@tanstack/react-router': 1.63.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@tanstack/react-router': 1.69.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       clsx: 2.1.1
       goober: 2.1.16(csstype@3.1.3)
       react: 18.3.1
@@ -7026,7 +7043,7 @@ snapshots:
       - supports-color
       - webpack-sources
 
-  '@tanstack/router-vite-plugin@1.62.0(vite@5.4.8(@types/node@20.16.11))':
+  '@tanstack/router-vite-plugin@1.69.1(vite@5.4.8(@types/node@20.16.11))':
     dependencies:
       '@tanstack/router-plugin': 1.76.0(vite@5.4.8(@types/node@20.16.11))
     transitivePeerDependencies:
@@ -7109,16 +7126,16 @@ snapshots:
 
   '@tsconfig/node18@18.2.4': {}
 
-  '@txnlab/use-wallet-react@4.6.0(@blockshake/defly-connect@1.2.1(algosdk@3.6.0))(@perawallet/connect@1.5.2(algosdk@3.6.0))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(algosdk@3.6.0)(lute-connect@1.5.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@txnlab/use-wallet-react@4.6.0(@blockshake/defly-connect@1.2.1(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz))(@perawallet/connect@1.5.2(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)(lute-connect@1.5.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@tanstack/react-store': 0.8.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@txnlab/use-wallet': 4.6.0(@blockshake/defly-connect@1.2.1(algosdk@3.6.0))(@perawallet/connect@1.5.2(algosdk@3.6.0))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(algosdk@3.6.0)(lute-connect@1.5.1)
-      algosdk: 3.6.0
+      '@txnlab/use-wallet': 4.6.0(@blockshake/defly-connect@1.2.1(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz))(@perawallet/connect@1.5.2(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)(lute-connect@1.5.1)
+      algosdk: file:ui/vendor/algosdk-3.8.0-dt.2.tgz
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
     optionalDependencies:
-      '@blockshake/defly-connect': 1.2.1(algosdk@3.6.0)
-      '@perawallet/connect': 1.5.2(algosdk@3.6.0)
+      '@blockshake/defly-connect': 1.2.1(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)
+      '@perawallet/connect': 1.5.2(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)
       '@walletconnect/modal': 2.7.0(@types/react@18.3.11)(react@18.3.1)
       '@walletconnect/sign-client': 2.20.2(typescript@5.6.3)(zod@3.23.8)
       lute-connect: 1.5.1
@@ -7129,13 +7146,13 @@ snapshots:
       - '@web3auth/modal'
       - '@web3auth/single-factor-auth'
 
-  '@txnlab/use-wallet@4.6.0(@blockshake/defly-connect@1.2.1(algosdk@3.6.0))(@perawallet/connect@1.5.2(algosdk@3.6.0))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(algosdk@3.6.0)(lute-connect@1.5.1)':
+  '@txnlab/use-wallet@4.6.0(@blockshake/defly-connect@1.2.1(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz))(@perawallet/connect@1.5.2(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)(lute-connect@1.5.1)':
     dependencies:
       '@tanstack/store': 0.8.0
-      algosdk: 3.6.0
+      algosdk: file:ui/vendor/algosdk-3.8.0-dt.2.tgz
     optionalDependencies:
-      '@blockshake/defly-connect': 1.2.1(algosdk@3.6.0)
-      '@perawallet/connect': 1.5.2(algosdk@3.6.0)
+      '@blockshake/defly-connect': 1.2.1(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)
+      '@perawallet/connect': 1.5.2(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)
       '@walletconnect/modal': 2.7.0(@types/react@18.3.11)(react@18.3.1)
       '@walletconnect/sign-client': 2.20.2(typescript@5.6.3)(zod@3.23.8)
       lute-connect: 1.5.1
@@ -7782,7 +7799,7 @@ snapshots:
 
   algorand-msgpack@1.1.0: {}
 
-  algosdk@3.6.0:
+  algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz:
     dependencies:
       algorand-msgpack: 1.1.0
       hi-base32: 0.5.1
@@ -10233,6 +10250,11 @@ snapshots:
       path-parse: 1.0.7
       supports-preserve-symlinks-flag: 1.0.0
 
+  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.5.tgz(@algorandfoundation/algokit-utils@file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz))(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz):
+    dependencies:
+      '@algorandfoundation/algokit-utils': file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz(algosdk@file:ui/vendor/algosdk-3.8.0-dt.2.tgz)
+      algosdk: file:ui/vendor/algosdk-3.8.0-dt.2.tgz
+
   reusify@1.0.4: {}
 
   rimraf@3.0.2:
@@ -10806,10 +10828,6 @@ snapshots:
       '@types/react': 18.3.11
 
   use-sync-external-store@1.2.0(react@18.3.1):
-    dependencies:
-      react: 18.3.1
-
-  use-sync-external-store@1.5.0(react@18.3.1):
     dependencies:
       react: 18.3.1
 

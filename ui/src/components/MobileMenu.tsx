@@ -1,6 +1,6 @@
 import { GitHubLogoIcon } from '@radix-ui/react-icons'
 import { Link } from '@tanstack/react-router'
-import { useWallet } from '@txnlab/use-wallet-react'
+import { useWriteAddress } from '@/hooks/useAtRound'
 import { Menu, Headset, Home, Monitor, Book, HandCoins } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { ModeToggleMobile } from '@/components/ModeToggleMobile'
@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetClose, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 
 export function MobileMenu() {
-  const { activeAddress } = useWallet()
+  // Adding a validator is a write, so the link is hidden while time travelling
+  const activeAddress = useWriteAddress()
   const isTestnet = import.meta.env.VITE_ALGOD_NETWORK === 'testnet'
 
   return (

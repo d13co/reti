@@ -1,5 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
+
+vi.mock('@/api/reti', async () => (await import('@/utils/tests/sdk')).mockRetiModule())
+vi.mock('@/hooks/useAtRound', async () => (await import('@/utils/tests/sdk')).mockAtRoundModule())
+
 import { useStakersChartData } from '@/hooks/useStakersChartData'
 import { MOCK_STAKED_INFO_1, MOCK_STAKED_INFO_2 } from '@/utils/tests/fixtures/boxes'
 

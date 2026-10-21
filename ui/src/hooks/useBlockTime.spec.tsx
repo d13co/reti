@@ -1,5 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
+
+vi.mock('@/api/reti', async () => (await import('@/utils/tests/sdk')).mockRetiModule())
+vi.mock('@/hooks/useAtRound', async () => (await import('@/utils/tests/sdk')).mockAtRoundModule())
+
 import { useBlockTime } from '@/hooks/useBlockTime'
 import { AVG_BLOCK_TIME_SECS } from '@/utils/tests/constants'
 

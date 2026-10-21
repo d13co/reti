@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { validatorMetricsQueryOptions } from '@/api/queries'
 import { AlgoDisplayAmount } from '@/components/AlgoDisplayAmount'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useAtRound } from '@/hooks/useAtRound'
 import { Validator } from '@/interfaces/validator'
 
 interface ValidatorRewardsProps {
@@ -10,15 +11,21 @@ interface ValidatorRewardsProps {
 
 export function ValidatorRewards({ validator }: ValidatorRewardsProps) {
   const queryClient = useQueryClient()
+  const { round } = useAtRound()
 
   // Observe only. Fetching is owned by the metered queue in useValidators - a live query per
   // row would have all ~225 validators bypass that queue and hit algod at once on mount.
   const metricsQuery = useQuery({
-    ...validatorMetricsQueryOptions(validator.id, queryClient, {
-      pools: validator.pools,
-      totalAlgoStaked: validator.state.totalAlgoStaked,
-      epochRoundLength: validator.config.epochRoundLength,
-    }),
+    ...validatorMetricsQueryOptions(
+      validator.id,
+      queryClient,
+      {
+        pools: validator.pools,
+        totalAlgoStaked: validator.state.totalAlgoStaked,
+        epochRoundLength: validator.config.epochRoundLength,
+      },
+      round,
+    ),
     enabled: false,
   })
 

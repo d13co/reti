@@ -1,15 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
 import { EventProps } from '@tremor/react'
-import { useWallet } from '@txnlab/use-wallet-react'
+import { useAtRound, useViewedTime, useWriteAddress } from '@/hooks/useAtRound'
 import * as React from 'react'
 import { validatorNodePoolAssignmentsQueryOptions } from '@/api/queries'
 import { AddPoolModal } from '@/components/AddPoolModal'
 import { AddStakeModal } from '@/components/AddStakeModal'
 import { ErrorAlert } from '@/components/ErrorAlert'
-import { Loading } from '@/components/Loading'
+import { TotalsHistory, TotalsHistorySkeleton } from '@/components/TimeTravel/TotalsHistory'
 import { PoolIcon } from '@/components/PoolIcon'
+import { RefreshOverlay } from '@/components/RefreshOverlay'
 import { Button } from '@/components/ui/button'
 import { Card, CardTitle, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { UnstakeModal } from '@/components/UnstakeModal'
 import { Constraints } from '@/contracts/ValidatorRegistryClient'
 import { useStakersChartData } from '@/hooks/useStakersChartData'
@@ -25,24 +27,31 @@ import {
 import { convertFromBaseUnits } from '@/utils/format'
 import { getPoolIndexFromName, getPoolNameFromIndex } from '@/utils/pools'
 import { cn } from '@/utils/ui'
-import { Details } from './Details'
+import { Details, DetailsSkeleton } from './Details'
 import { Highlights } from './Highlights'
 import { PoolsChart } from './PoolsChart'
 import { SelectPool } from './SelectPool'
-import { StakingPoolInfo } from './StakingPoolInfo'
+import { StakingPoolInfo, StakingPoolInfoSkeleton } from './StakingPoolInfo'
 import { StakersList } from './StakersList'
 import { SunsetNotice } from './SunsetNotice'
+import { ValidatorTimeline, ValidatorTimelineSkeleton } from './ValidatorTimeline'
 
 interface ValidatorDetailsProps {
   validator: Validator
   stakesByValidator: StakerValidatorData[]
   constraints: Constraints
+  /** What's on screen is from the previous round while this one loads */
+  refreshing?: boolean
+  /** The validator has an NFD that hasn't loaded yet */
+  nfdPending?: boolean
 }
 
 export function ValidatorDetails({
   validator,
   constraints,
   stakesByValidator,
+  refreshing = false,
+  nfdPending = false,
 }: ValidatorDetailsProps) {
   const [selectedPool, setSelectedPool] = React.useState<string>(
     validator?.pools.length > 0 ? '0' : 'all',
@@ -51,22 +60,33 @@ export function ValidatorDetails({
   const [addStakeValidator, setAddStakeValidator] = React.useState<Validator | null>(null)
   const [unstakeValidator, setUnstakeValidator] = React.useState<Validator | null>(null)
 
-  const { activeAddress } = useWallet()
+  // Null while time travelling, which disables every write below
+  const writeAddress = useWriteAddress()
+  const { round } = useAtRound()
+  // Re-renders when a past round's time lands, which the sunset checks below read
+  useViewedTime()
 
-  const isManager = validator.config.manager === activeAddress
-  const isOwner = validator.config.owner === activeAddress
+  const isManager = validator.config.manager === writeAddress
+  const isOwner = validator.config.owner === writeAddress
   const canEdit = isManager || isOwner
-  const stakingDisabled = isStakingDisabled(activeAddress, validator, constraints)
-  const unstakingDisabled = isUnstakingDisabled(activeAddress, validator, stakesByValidator)
+  const stakingDisabled = isStakingDisabled(writeAddress, validator, constraints)
+  const unstakingDisabled = isUnstakingDisabled(writeAddress, validator, stakesByValidator)
 
-  const { stakersChartData, poolsInfo, isLoading, errorMessage, refetchAll } = useStakersChartData({
+  const {
+    stakersChartData,
+    poolsInfo,
+    isLoading,
+    refreshing: stakersRefreshing,
+    errorMessage,
+    refetchAll,
+  } = useStakersChartData({
     selectedPool,
     validatorId: validator.id,
     pauseRefetch: !!addPoolValidator, // Pause refetch when adding pool
   })
 
   const { data: poolAssignment } = useQuery(
-    validatorNodePoolAssignmentsQueryOptions(validator.id, canEdit),
+    validatorNodePoolAssignmentsQueryOptions(validator.id, round, canEdit),
   )
 
   const validatorHasSlots = React.useMemo(() => {
@@ -105,9 +125,12 @@ export function ValidatorDetails({
 
   const poolsChartContainerRef = React.useRef<HTMLDivElement>(null)
 
+  // The pools' figures and APY come with the validator; the stakers load on their own
+  const stakingRefreshing = refreshing || stakersRefreshing
+
   const renderStakingDetails = () => {
     if (isLoading) {
-      return <Loading />
+      return <StakingDetailsSkeleton />
     }
 
     if (errorMessage) {
@@ -115,7 +138,7 @@ export function ValidatorDetails({
     }
 
     return (
-      <Card>
+      <Card className="relative" aria-busy={stakingRefreshing}>
         <CardHeader>
           <CardTitle as="h2" className="flex items-start justify-between gap-x-2">
             Staking Details
@@ -171,7 +194,7 @@ export function ValidatorDetails({
         </CardContent>
         <CardFooter
           className={cn('flex flex-col items-stretch gap-2 sm:flex-row sm:justify-end', {
-            hidden: !activeAddress,
+            hidden: !writeAddress,
           })}
         >
           {!isSunsetted(validator) && (
@@ -187,25 +210,40 @@ export function ValidatorDetails({
             Unstake
           </Button>
         </CardFooter>
+        <RefreshOverlay active={stakingRefreshing} tall />
       </Card>
     )
   }
 
   return (
-    <div className="py-10 space-y-4">
-      <Highlights
-        validator={validator}
-        constraints={constraints}
-        setAddPoolValidator={setAddPoolValidator}
-        canAddPool={canAddPool}
-      />
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div>
-          <Details validator={validator} constraints={constraints} />
-        </div>
-        <div className="space-y-4 lg:col-span-2">{renderStakingDetails()}</div>
-      </div>
-
+    <ValidatorDetailsLayout
+      highlights={
+        <Highlights
+          validator={validator}
+          constraints={constraints}
+          setAddPoolValidator={setAddPoolValidator}
+          canAddPool={canAddPool}
+          refreshing={refreshing}
+        />
+      }
+      details={
+        <Details
+          validator={validator}
+          constraints={constraints}
+          refreshing={refreshing}
+          nfdPending={nfdPending}
+        />
+      }
+      staking={renderStakingDetails()}
+      history={
+        <TotalsHistory
+          target={{ validator: validator.id }}
+          title="History"
+          className="lg:col-span-2"
+        />
+      }
+      timeline={<ValidatorTimeline validator={validator} />}
+    >
       {canAddPool && (
         <AddPoolModal
           validator={addPoolValidator}
@@ -225,6 +263,82 @@ export function ValidatorDetails({
         setValidator={setUnstakeValidator}
         stakesByValidator={stakesByValidator}
       />
+    </ValidatorDetailsLayout>
+  )
+}
+
+interface ValidatorDetailsLayoutProps {
+  highlights: React.ReactNode
+  details: React.ReactNode
+  staking: React.ReactNode
+  history: React.ReactNode
+  timeline: React.ReactNode
+  children?: React.ReactNode
+}
+
+/** Where each section goes: shared by the page and its skeleton, so they line up. */
+function ValidatorDetailsLayout({
+  highlights,
+  details,
+  staking,
+  history,
+  timeline,
+  children,
+}: ValidatorDetailsLayoutProps) {
+  return (
+    <div className="py-10 space-y-4">
+      {highlights}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div>{details}</div>
+        <div className="space-y-4 lg:col-span-2">{staking}</div>
+      </div>
+
+      {/* History: only rendered when the read node can serve past rounds */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {history}
+        {timeline}
+      </div>
+      {children}
     </div>
+  )
+}
+
+/** The Staking Details card while its pools and stakers first load. */
+function StakingDetailsSkeleton() {
+  return (
+    <Card aria-busy>
+      <CardHeader>
+        <CardTitle as="h2" className="flex items-start justify-between gap-x-2">
+          Staking Details
+          <Skeleton className="-my-2.5 h-9 w-[120px]" />
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="mt-2.5 mb-4 space-y-6">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div className="self-start py-2 flex items-center justify-center">
+            {/* Tremor's donut, ring and all */}
+            <div className="w-52 h-52 sm:w-64 sm:h-64 animate-pulse rounded-full border-[1.75rem] border-muted" />
+          </div>
+          <div className="flex items-center">
+            <StakingPoolInfoSkeleton />
+          </div>
+        </div>
+        {/* The stakers list, at its height for a pool with 10 stakers or more */}
+        <Skeleton className="h-64 sm:h-96 rounded-lg" />
+      </CardContent>
+    </Card>
+  )
+}
+
+/** The whole page's sections while the validator first loads. */
+export function ValidatorDetailsSkeleton() {
+  return (
+    <ValidatorDetailsLayout
+      highlights={<Highlights />}
+      details={<DetailsSkeleton />}
+      staking={<StakingDetailsSkeleton />}
+      history={<TotalsHistorySkeleton title="History" className="lg:col-span-2" />}
+      timeline={<ValidatorTimelineSkeleton />}
+    />
   )
 }

@@ -4,6 +4,7 @@ import { PerfIndicator } from '@/components/PerfIndicator'
 import { TrafficLight } from '@/components/TrafficLight'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Indicator } from '@/constants/indicator'
+import { useAtRound } from '@/hooks/useAtRound'
 import { useBlockTime } from '@/hooks/useBlockTime'
 import { Validator } from '@/interfaces/validator'
 import { formatDuration } from '@/utils/dayjs'
@@ -15,15 +16,21 @@ interface ValidatorRewardsProps {
 
 export function ValidatorStatus({ validator }: ValidatorRewardsProps) {
   const queryClient = useQueryClient()
+  const { round, pinned } = useAtRound()
 
   // Observe only. Fetching is owned by the metered queue in useValidators - a live query per
   // row would have all ~225 validators bypass that queue and hit algod at once on mount.
   const metricsQuery = useQuery({
-    ...validatorMetricsQueryOptions(validator.id, queryClient, {
-      pools: validator.pools,
-      totalAlgoStaked: validator.state.totalAlgoStaked,
-      epochRoundLength: validator.config.epochRoundLength,
-    }),
+    ...validatorMetricsQueryOptions(
+      validator.id,
+      queryClient,
+      {
+        pools: validator.pools,
+        totalAlgoStaked: validator.state.totalAlgoStaked,
+        epochRoundLength: validator.config.epochRoundLength,
+      },
+      round,
+    ),
     enabled: false,
   })
 
@@ -78,8 +85,13 @@ export function ValidatorStatus({ validator }: ValidatorRewardsProps) {
 
   return (
     <span className="flex items-center space-x-2">
-      <PerfIndicator tooltipContent={perfTooltip} indicator={perfIndicator} showGreen={true} />
-      <span className="h-5 w-px bg-gray-300 dark:bg-gray-700"></span>
+      {/* Nodely's performance score only describes today, so it's left out at a past round */}
+      {!pinned && (
+        <>
+          <PerfIndicator tooltipContent={perfTooltip} indicator={perfIndicator} showGreen={true} />
+          <span className="h-5 w-px bg-gray-300 dark:bg-gray-700"></span>
+        </>
+      )}
       <TrafficLight tooltipContent={statusTooltip} indicator={statusIndicator} showGreen={true} />
     </span>
   )

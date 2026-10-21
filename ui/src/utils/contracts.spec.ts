@@ -4,15 +4,15 @@ import {
   calculateRewardEligibility,
   calculateSaturationPercentage,
   calculateValidatorPoolMetrics,
-  decodeValidatorBoxName,
-  decodeValidatorInfo,
+  epochAdjustedApy,
   getEpochLengthBlocks,
+  ghostValidatorToParts,
   isStakingDisabled,
+  isSunsetted,
   isUnstakingDisabled,
-  validatorBoxName,
-  validatorInfoToParts,
+  realisedApy,
+  setViewedTime,
 } from '@/utils/contracts'
-import { encodeValidatorInfo } from './tests/fixtures/boxes'
 import {
   MOCK_CONSTRAINTS,
   MOCK_VALIDATOR_1,
@@ -616,39 +616,25 @@ describe('calculateValidatorPoolMetrics', () => {
   })
 })
 
-describe('decodeValidatorBoxName', () => {
-  it('decodes a validator id from a valid box name', () => {
-    expect(decodeValidatorBoxName(validatorBoxName(1))).toBe(1)
-    expect(decodeValidatorBoxName(validatorBoxName(42))).toBe(42)
-  })
+describe('ghostValidatorToParts', () => {
+  const EMPTY_POOL: [bigint, number, bigint] = [0n, 0, 0n]
+  const ghostValidator = {
+    config: MOCK_VALIDATOR_1_CONFIG,
+    state: MOCK_VALIDATOR_1_STATE,
+    poolInfo: [
+      ...MOCK_VALIDATOR_1_POOLS.map((pool): [bigint, number, bigint] => [
+        pool.poolAppId,
+        pool.totalStakers,
+        pool.totalAlgoStaked,
+      ]),
+      EMPTY_POOL,
+      EMPTY_POOL,
+    ],
+    nodeAssignment: MOCK_VALIDATOR_1_POOL_ASSIGNMENT,
+  }
 
-  it('rejects a 9-byte name with the wrong prefix byte', () => {
-    const name = validatorBoxName(1)
-    name[0] = 0x73 // 's', as in the 'sps' stakerPoolSet boxes
-    expect(decodeValidatorBoxName(name)).toBeNull()
-  })
-
-  it('rejects a name of the wrong length', () => {
-    expect(decodeValidatorBoxName(new Uint8Array([0x76, 0, 0, 0, 0, 0, 0, 1]))).toBeNull()
-    expect(decodeValidatorBoxName(new Uint8Array(35).fill(0x76))).toBeNull()
-  })
-})
-
-describe('decodeValidatorInfo / validatorInfoToParts', () => {
-  const encoded = new Uint8Array(
-    Buffer.from(
-      encodeValidatorInfo({
-        config: MOCK_VALIDATOR_1_CONFIG,
-        state: MOCK_VALIDATOR_1_STATE,
-        pools: MOCK_VALIDATOR_1_POOLS,
-        nodePoolAssignment: MOCK_VALIDATOR_1_POOL_ASSIGNMENT,
-      }),
-      'base64',
-    ),
-  )
-
-  it('round-trips config, state and node pool assignments', () => {
-    const parts = validatorInfoToParts(1, decodeValidatorInfo(encoded))
+  it('maps config, state and node pool assignments through unchanged', () => {
+    const parts = ghostValidatorToParts(1, ghostValidator)
 
     expect(parts.id).toBe(1)
     expect(parts.config).toEqual(MOCK_VALIDATOR_1_CONFIG)
@@ -656,32 +642,109 @@ describe('decodeValidatorInfo / validatorInfoToParts', () => {
     expect(parts.nodePoolAssignment).toEqual(MOCK_VALIDATOR_1_POOL_ASSIGNMENT)
   })
 
-  it('truncates pools at the first empty slot rather than padding to 24', () => {
-    const { pools } = validatorInfoToParts(1, decodeValidatorInfo(encoded))
+  it('truncates pools at the first empty slot', () => {
+    const { pools } = ghostValidatorToParts(1, ghostValidator)
 
     expect(pools).toHaveLength(MOCK_VALIDATOR_1_POOLS.length)
-    expect(pools).toHaveLength(MOCK_VALIDATOR_1_STATE.numPools)
     expect(pools).toEqual(MOCK_VALIDATOR_1_POOLS)
   })
 
   it('derives poolAddress from poolAppId without a network call', () => {
-    const { pools } = validatorInfoToParts(1, decodeValidatorInfo(encoded))
+    const { pools } = ghostValidatorToParts(1, ghostValidator)
 
     pools.forEach((pool) => {
       expect(pool.poolAddress).toBe(algosdk.getApplicationAddress(pool.poolAppId).toString())
     })
   })
 
-  it('decodes uint16 pool stakers as number and uint64 totals as bigint', () => {
-    const parts = validatorInfoToParts(1, decodeValidatorInfo(encoded))
+  it('throws when the id does not match the config id, as for a missing validator', () => {
+    expect(() => ghostValidatorToParts(2, ghostValidator)).toThrow(/config.id/)
+  })
+})
 
-    expect(typeof parts.pools[0].totalStakers).toBe('number')
-    expect(typeof parts.pools[0].totalAlgoStaked).toBe('bigint')
-    expect(typeof parts.state.totalStakers).toBe('bigint')
-    expect(typeof parts.state.numPools).toBe('number')
+describe('isSunsetted', () => {
+  const sunsetAt = 1_700_000_000
+  const sunsetting = {
+    ...MOCK_VALIDATOR_1,
+    config: { ...MOCK_VALIDATOR_1.config, sunsettingOn: BigInt(sunsetAt) },
+  }
+
+  afterEach(() => setViewedTime(undefined))
+
+  it('compares against the wall clock by default', () => {
+    expect(isSunsetted(sunsetting)).toBe(true)
   })
 
-  it('throws when the box id does not match the decoded config id', () => {
-    expect(() => validatorInfoToParts(2, decodeValidatorInfo(encoded))).toThrow(/box layout/)
+  it('compares against the time being shown while time travelling', () => {
+    setViewedTime(sunsetAt - 60)
+    expect(isSunsetted(sunsetting)).toBe(false)
+
+    setViewedTime(sunsetAt + 60)
+    expect(isSunsetted(sunsetting)).toBe(true)
+  })
+
+  it('takes an explicit time over the time being shown', () => {
+    setViewedTime(sunsetAt + 60)
+    expect(isSunsetted(sunsetting, sunsetAt - 60)).toBe(false)
+  })
+
+  it('is false for a validator with no sunset', () => {
+    setViewedTime(sunsetAt + 60)
+    expect(isSunsetted(MOCK_VALIDATOR_1)).toBe(false)
+  })
+})
+
+describe('write gates while time travelling', () => {
+  // Components pass `useWriteAddress()`, which is null at a past round
+  it('disables staking and unstaking for a null write address', () => {
+    expect(isStakingDisabled(null, MOCK_VALIDATOR_1, MOCK_CONSTRAINTS)).toBe(true)
+    expect(isUnstakingDisabled(null, MOCK_VALIDATOR_1, [])).toBe(true)
+  })
+})
+
+describe('epochAdjustedApy', () => {
+  it('leaves pools paying out daily or more often as they are', () => {
+    expect(epochAdjustedApy(6.6, 30_000, 30_857n)).toBe(6.6)
+    expect(epochAdjustedApy(5.8, 2_500, 30_857n)).toBe(5.8)
+  })
+
+  it('divides by the epoch in days for pools paying out less often', () => {
+    // Validator 11 at round 48,977,904: a 150,000-round epoch read 22.06%, stakers earned ~4.7-7%
+    expect(epochAdjustedApy(22.06, 150_000, 30_857n)).toBeCloseTo(4.54, 2)
+  })
+
+  it("counts days by the contract's default when the pool hasn't measured its own", () => {
+    expect(epochAdjustedApy(20, 61_714)).toBeCloseTo(10, 3)
+  })
+})
+
+describe('realisedApy', () => {
+  const staker = (account: string, balance: number, totalRewarded: number) => ({
+    account,
+    balance: BigInt(balance),
+    totalRewarded: BigInt(totalRewarded),
+  })
+
+  it('annualizes what stakers present at both ends earned on their starting balance', () => {
+    const before = [staker('A', 1_000_000, 0), staker('B', 3_000_000, 50)]
+    // 0.5% over 30 days
+    const after = [staker('A', 1_005_000, 5_000), staker('B', 3_015_000, 15_050)]
+    expect(realisedApy(before, after, 30)).toBeCloseTo(0.5 * (365 / 30), 6)
+  })
+
+  it('leaves out stakers who added or removed stake, and those who joined or left', () => {
+    const before = [staker('A', 1_000_000, 0), staker('B', 1_000_000, 0), staker('C', 1, 0)]
+    const after = [
+      staker('A', 1_010_000, 10_000),
+      // Added 500,000 on top of 10,000 rewards
+      staker('B', 1_510_000, 10_000),
+      staker('D', 9_000_000, 0),
+    ]
+    expect(realisedApy(before, after, 365)).toBeCloseTo(1, 6)
+  })
+
+  it('has no figure when nobody qualifies', () => {
+    expect(realisedApy([], [staker('A', 1, 0)], 30)).toBeUndefined()
+    expect(realisedApy([staker('A', 1, 0)], [staker('A', 5, 0)], 30)).toBeUndefined()
   })
 })

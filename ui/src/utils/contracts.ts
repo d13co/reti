@@ -1,20 +1,16 @@
-import {
-  getABIStructFromABITuple,
-  getABITupleTypeFromABIStructDefinition,
-} from '@algorandfoundation/algokit-utils/types/app-arc56'
 import { QueryClient } from '@tanstack/react-query'
 import algosdk from 'algosdk'
-import { fetchAccountAssetInformation, fetchAccountInformation } from '@/api/algod'
+import type { Validator as GhostValidator } from 'reti-ghost-sdk'
+import { fetchAccountInformation } from '@/api/algod'
 import { fetchNfd, fetchNfdSearch } from '@/api/nfd'
+import { sdkAt } from '@/api/reti'
 import { GatingType } from '@/constants/gating'
 import { Indicator } from '@/constants/indicator'
 import {
-  APP_SPEC,
   Constraints,
   NodePoolAssignmentConfig,
   ValidatorConfig,
   ValidatorCurState,
-  ValidatorInfo,
 } from '@/contracts/ValidatorRegistryClient'
 import { Nfd, NfdSearchV2Params } from '@/interfaces/nfd'
 import { StakerValidatorData } from '@/interfaces/staking'
@@ -26,9 +22,9 @@ import {
   ValidatorCoreData,
 } from '@/interfaces/validator'
 import { BigMath } from '@/utils/bigint'
-import { boxNameForId, idFromBoxName } from '@/utils/bytes'
 import { dayjs } from '@/utils/dayjs'
 import { convertToBaseUnits, roundToFirstNonZeroDecimal, roundToWholeAlgos } from '@/utils/format'
+import { roundKey } from '@/utils/round'
 
 /**
  * Process node pool assignment configuration data into an array with each node's available slot count
@@ -318,13 +314,43 @@ export function isSunsetting(validator: Validator): boolean {
 }
 
 /**
+ * The time the UI is showing, in seconds: the pinned round's block timestamp while time
+ * travelling, else undefined for the wall clock. Set by the root route's loader, so the pure
+ * helpers below (and table filters) needn't each be handed it. It can land after a pinned page
+ * has rendered: components that use those helpers re-render on it through `useViewedTime`.
+ */
+let viewedTime: number | undefined
+
+const viewedTimeListeners = new Set<() => void>()
+
+export function setViewedTime(time: number | undefined): void {
+  if (time === viewedTime) return
+  viewedTime = time
+  viewedTimeListeners.forEach((listener) => listener())
+}
+
+export function getViewedTime(): number | undefined {
+  return viewedTime
+}
+
+/** Calls `listener` whenever the viewed time changes; returns the unsubscribe. */
+export function subscribeViewedTime(listener: () => void): () => void {
+  viewedTimeListeners.add(listener)
+  return () => viewedTimeListeners.delete(listener)
+}
+
+/**
  * Check if a validator has sunsetted
  * @param {Validator} validator - Validator object
+ * @param {number} now - The time to check at, in seconds; defaults to the time being shown (see
+ *   {@link setViewedTime}), else the wall clock
  * @returns {boolean} Whether the validator has sunsetted
  */
-export function isSunsetted(validator: Validator): boolean {
+export function isSunsetted(validator: Validator, now: number | undefined = viewedTime): boolean {
   return validator.config.sunsettingOn > 0
-    ? dayjs.unix(Number(validator.config.sunsettingOn)).isBefore(dayjs())
+    ? dayjs
+        .unix(Number(validator.config.sunsettingOn))
+        .isBefore(now === undefined ? dayjs() : dayjs.unix(now))
     : false
 }
 
@@ -533,64 +559,22 @@ export function calculateRewardEligibility(
   return Math.floor(rewardEligibility)
 }
 
-/** Box name prefix for the `validatorList` BoxMap */
-export const VALIDATOR_BOX_PREFIX = 'v'
-
 /**
- * Hoisted so decoding 200+ boxes doesn't rebuild the tuple type each time.
- * Note we deliberately do NOT read the prefix from `APP_SPEC.state.maps.box` - TEALScript
- * 0.106.1 writes it as raw ASCII where ARC-56 requires base64, so consumers that decode it
- * (including algokit's own `state.box.getMap()`) get the wrong bytes.
+ * Splits a validator read through reti-ghost-sdk into the four shapes the UI consumes, matching
+ * what the getValidatorConfig / getValidatorState / getPools / getNodePoolAssignments ABI methods
+ * return.
  */
-const VALIDATOR_INFO_TUPLE_TYPE = getABITupleTypeFromABIStructDefinition(
-  APP_SPEC.structs.ValidatorInfo,
-  APP_SPEC.structs,
-)
-
-/** Box name for a validator's entry in the `validatorList` BoxMap. */
-export function validatorBoxName(validatorId: number | bigint): Uint8Array {
-  return boxNameForId(VALIDATOR_BOX_PREFIX, validatorId)
-}
-
-/**
- * Decodes a validator id from a raw box name, or returns null if the name isn't a
- * validator box.
- */
-export function decodeValidatorBoxName(name: Uint8Array): number | null {
-  const id = idFromBoxName(VALIDATOR_BOX_PREFIX, name)
-  return id === null ? null : Number(id)
-}
-
-/**
- * Decodes a raw `validatorList` box value into the generated ValidatorInfo struct.
- */
-export function decodeValidatorInfo(value: Uint8Array): ValidatorInfo {
-  return getABIStructFromABITuple(
-    VALIDATOR_INFO_TUPLE_TYPE.decode(value) as algosdk.ABIValue[],
-    APP_SPEC.structs.ValidatorInfo,
-    APP_SPEC.structs,
-  ) as ValidatorInfo
-}
-
-/**
- * Splits a decoded ValidatorInfo into the four shapes the UI consumes, matching what the
- * getValidatorConfig / getValidatorState / getPools / getNodePoolAssignments ABI methods
- * used to return.
- */
-export function validatorInfoToParts(id: number, info: ValidatorInfo): ValidatorCoreData {
-  if (info.config.id !== BigInt(id)) {
-    throw new Error(
-      `Validator box ${id} decoded with config.id ${info.config.id} - box layout mismatch`,
-    )
+export function ghostValidatorToParts(id: number, validator: GhostValidator): ValidatorCoreData {
+  if (validator.config.id !== BigInt(id)) {
+    throw new Error(`Validator ${id} read back with config.id ${validator.config.id}`)
   }
 
   const pools: LocalPoolInfo[] = []
 
-  // Truncate at the first empty slot rather than slicing by state.numPools. This mirrors
-  // getPools() in the contract, which breaks on poolAppId === 0 because "pools can't be
-  // removed", and stays correct if the counter and the array ever disagree.
-  for (let i = 0; i < info.pools.length; i++) {
-    const [poolAppId, totalStakers, totalAlgoStaked] = info.pools[i]
+  // Truncate at the first empty slot. This mirrors getPools() in the contract, which breaks on
+  // poolAppId === 0 because "pools can't be removed".
+  for (let i = 0; i < validator.poolInfo.length; i++) {
+    const [poolAppId, totalStakers, totalAlgoStaked] = validator.poolInfo[i]
     if (poolAppId === 0n) {
       break
     }
@@ -605,28 +589,31 @@ export function validatorInfoToParts(id: number, info: ValidatorInfo): Validator
 
   return {
     id,
-    config: info.config,
-    state: info.state,
+    config: validator.config,
+    state: validator.state,
     pools,
-    nodePoolAssignment: info.nodePoolAssignments,
+    nodePoolAssignment: validator.nodeAssignment,
   }
 }
 
 /**
- * Seeds the per-validator query caches from bulk-fetched box data, so components and route
- * loaders that read the individual keys resolve from cache instead of refetching.
+ * Seeds the per-validator query caches at `round` from bulk-fetched data, so components and route
+ * loaders that read the individual keys resolve from cache instead of refetching. The keys match
+ * the `validator*QueryOptions` factories in `@/api/queries`.
  */
 export function setValidatorCoreQueriesData(
   queryClient: QueryClient,
   data: ValidatorCoreData,
+  round?: bigint,
 ): void {
   const validatorId = String(data.id)
+  const at = roundKey(round)
 
-  queryClient.setQueryData<ValidatorConfig>(['validator-config', validatorId], data.config)
-  queryClient.setQueryData<ValidatorCurState>(['validator-state', validatorId], data.state)
-  queryClient.setQueryData<LocalPoolInfo[]>(['validator-pools', validatorId], data.pools)
+  queryClient.setQueryData<ValidatorConfig>(['validator-config', validatorId, at], data.config)
+  queryClient.setQueryData<ValidatorCurState>(['validator-state', validatorId, at], data.state)
+  queryClient.setQueryData<LocalPoolInfo[]>(['validator-pools', validatorId, at], data.pools)
   queryClient.setQueryData<NodePoolAssignmentConfig>(
-    ['validator-node-pool-assignments', validatorId],
+    ['validator-node-pool-assignments', validatorId, at],
     data.nodePoolAssignment,
   )
 }
@@ -634,17 +621,20 @@ export function setValidatorCoreQueriesData(
 export function seedValidatorCoreQueries(
   queryClient: QueryClient,
   data: ValidatorCoreData[],
+  round?: bigint,
 ): void {
-  data.forEach((validator) => setValidatorCoreQueriesData(queryClient, validator))
+  data.forEach((validator) => setValidatorCoreQueriesData(queryClient, validator, round))
 }
 
 /**
- * Update validator data in the query cache after a mutation
+ * Update validator data in the query cache after a mutation. Mutations only happen live, so this
+ * only touches the latest-state entries.
  * @param {QueryClient} queryClient - Tanstack Query client instance
  * @param {Validator} data - The new validator object
  */
 export function setValidatorQueriesData(queryClient: QueryClient, data: Validator): void {
   const { id, config, state, pools, nodePoolAssignment } = data
+  const latest = roundKey(undefined)
 
   // Validator.config omits `id`; the cached ValidatorConfig includes it
   setValidatorCoreQueriesData(queryClient, {
@@ -656,53 +646,58 @@ export function setValidatorQueriesData(queryClient: QueryClient, data: Validato
   })
 
   // Force refetch of the aggregate validator query to trigger dashboard update
-  queryClient.invalidateQueries({ queryKey: ['all-validators'] })
+  queryClient.invalidateQueries({ queryKey: ['all-validators', latest], exact: true })
 
   // Prefetch enrichment data if available
   if (data.rewardToken) {
     queryClient.setQueryData<algosdk.modelsv2.Asset>(
-      ['asset', Number(data.config.rewardTokenId)],
+      ['asset', Number(data.config.rewardTokenId), latest],
       data.rewardToken,
     )
   }
   if (data.nfd) {
-    queryClient.setQueryData<Nfd>(['nfd', data.config.nfdForInfo.toString()], data.nfd)
+    queryClient.setQueryData<Nfd>(
+      ['nfd', data.config.nfdForInfo.toString(), { view: 'full' }],
+      data.nfd,
+    )
   }
   if (data.gatingAssets) {
     data.gatingAssets.forEach((asset) => {
       if (asset) {
-        queryClient.setQueryData<algosdk.modelsv2.Asset>(['asset', Number(asset.index)], asset)
+        queryClient.setQueryData<algosdk.modelsv2.Asset>(
+          ['asset', Number(asset.index), latest],
+          asset,
+        )
       }
     })
   }
 }
 
-export async function fetchRemainingRewardsBalance(validator: Validator): Promise<bigint> {
-  const { rewardTokenId } = validator.config
-  const { rewardTokenHeldBack } = validator.state
-
-  if (!rewardTokenId) {
-    return BigInt(0)
-  }
-
-  const poolAppId = validator.pools[0]?.poolAppId ?? 0n
-
+/**
+ * The reward tokens pool 1 holds, as of `round`. All of a validator's reward tokens are held
+ * there; see {@link remainingRewardsBalance} for what's left of them to pay out.
+ */
+export async function fetchRewardTokenHolding(
+  poolAppId: bigint,
+  rewardTokenId: bigint,
+  round?: bigint,
+): Promise<bigint> {
   if (poolAppId === 0n) {
     throw new Error('Pool 1 not found')
   }
 
-  const poolAddress = algosdk.getApplicationAddress(poolAppId)
+  const poolAddress = algosdk.getApplicationAddress(poolAppId).toString()
 
-  const accountAssetInfo = await fetchAccountAssetInformation(poolAddress.toString(), rewardTokenId)
-  const rewardTokenAmount = accountAssetInfo.assetHolding?.amount ?? 0n
+  const [holding] = await sdkAt(round).getAssetHoldings([
+    { account: poolAddress, assetId: rewardTokenId },
+  ])
+  return holding?.balance ?? 0n
+}
 
-  const remainingBalance = rewardTokenAmount - rewardTokenHeldBack
-
-  if (remainingBalance < BigInt(0)) {
-    return BigInt(0)
-  }
-
-  return remainingBalance
+/** The reward tokens pool 1 holds beyond what's already owed to stakers (`rewardTokenHeldBack`). */
+export function remainingRewardsBalance(holding: bigint, rewardTokenHeldBack: bigint): bigint {
+  const remaining = holding - rewardTokenHeldBack
+  return remaining < 0n ? 0n : remaining
 }
 
 export function calculateStakeSaturation(
@@ -806,7 +801,13 @@ export function calculateValidatorPoolMetrics(
   const rewardsBalance = roundToWholeAlgos(totalBalances - totalAlgoStaked)
   const roundsSinceLastPayout = oldestRound ? currentRound - oldestRound : undefined
 
-  // Calculate APY weighted by the pool balances
+  const { apy, extDeposits } = weightedPoolApy(poolsData)
+
+  return { rewardsBalance, roundsSinceLastPayout, apy, extDeposits }
+}
+
+/** A validator's APY, the pools' APYs weighted by their balances, and its external deposits. */
+export function weightedPoolApy(poolsData: PoolData[]): { apy: number; extDeposits: number } {
   const nonZeroBalancePools = poolsData.filter((data) => data.balance > 0n)
   const totalWeightedApy = nonZeroBalancePools.reduce((sum, data) => {
     return sum + (data.apy || 0) * Number(data.balance)
@@ -816,5 +817,59 @@ export function calculateValidatorPoolMetrics(
 
   const apy = totalBalance > 0 ? totalWeightedApy / totalBalance : 0
 
-  return { rewardsBalance, roundsSinceLastPayout, apy, extDeposits }
+  return { apy, extDeposits }
+}
+
+/** Rounds per day by the pool contract's own default, for a pool that hasn't measured its own */
+export const APPROX_ROUNDS_PER_DAY = 30857n
+
+/** A pool's epoch in days, by its own count of rounds per day. */
+export function epochDays(epochRoundLength: bigint | number, roundsPerDay?: bigint): number {
+  return Number(epochRoundLength) / Number(roundsPerDay || APPROX_ROUNDS_PER_DAY)
+}
+
+/**
+ * A pool's on-chain APY, corrected for epochs longer than a day. The pool updates its moving
+ * average at most once a day, and only when it's called, which is mostly at its payouts. Each
+ * update annualizes the rewards since the last as if they were one day's, so a pool paying out
+ * every n days reads about n times too high.
+ */
+export function epochAdjustedApy(
+  apy: number,
+  epochRoundLength: bigint | number,
+  roundsPerDay?: bigint,
+): number {
+  const days = epochDays(epochRoundLength, roundsPerDay)
+  return days > 1 ? apy / days : apy
+}
+
+/** How far back a long-epoch pool's yield is measured: enough for a few payouts. */
+export const REALISED_APY_DAYS = 30
+
+/** A staker's entry in a pool, as far as the yield it earned goes */
+type StakerBalance = { account: string; balance: bigint; totalRewarded: bigint }
+
+/**
+ * The yearly yield, in percent, a pool's stakers earned between two reads of its staker list
+ * `days` apart. Only stakers in both reads whose balance grew by exactly their rewards count:
+ * anyone who added or removed stake in between would skew it. Undefined when nobody qualifies.
+ */
+export function realisedApy(
+  before: StakerBalance[],
+  after: StakerBalance[],
+  days: number,
+): number | undefined {
+  const earlier = new Map(before.map((staker) => [staker.account, staker]))
+  let staked = 0n
+  let earned = 0n
+  for (const staker of after) {
+    const then = earlier.get(staker.account)
+    if (!then) continue
+    const rewarded = staker.totalRewarded - then.totalRewarded
+    if (staker.balance - then.balance !== rewarded) continue
+    staked += then.balance
+    earned += rewarded
+  }
+  if (staked === 0n || days <= 0) return undefined
+  return (Number(earned) / Number(staked)) * (365 / days) * 100
 }

@@ -20,6 +20,7 @@ import { hydrateQueryCache } from '@/lib/queryPersister'
 import { ThemeProvider } from '@/providers/ThemeProvider'
 import { routeTree } from '@/routeTree.gen'
 import '@/styles/main.css'
+import { retryUnlessRoundUnavailable } from '@/utils/round'
 import {
   getAlgodConfigFromViteEnvironment,
   getAlgodNetwork,
@@ -88,7 +89,9 @@ const walletManager = new WalletManager({
 })
 
 // Tanstack Query client instance
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: retryUnlessRoundUnavailable } },
+})
 
 // Tanstack Router instance
 const router = createRouter({

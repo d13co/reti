@@ -20,5 +20,11 @@
     "dev:localnet": "pnpm -F './ui' run dev:localnet",
     "dev:testnet": "pnpm -F './ui' run dev:testnet",
     "dev:mainnet": "pnpm -F './ui' run dev:mainnet"
+  },
+  "pnpm": {
+    "overrides": {
+      "algosdk": "file:ui/vendor/algosdk-3.8.0-dt.2.tgz",
+      "@algorandfoundation/algokit-utils": "file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz"
+    }
   }
 }

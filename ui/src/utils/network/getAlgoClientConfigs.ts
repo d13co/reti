@@ -65,3 +65,21 @@ export function getAlgodNetwork(): NetworkId {
       throw new Error(`Unknown network: ${config.network}`)
   }
 }
+
+/**
+ * The algod every protocol read goes through (via reti-ghost-sdk). Point it at a dtalgorand node
+ * to read at any past round; reads at the latest round work on any algod. Falls back to the
+ * regular algod, which keeps serving wallet signing and writes either way.
+ */
+export function getReadAlgodConfigFromViteEnvironment(): AlgoViteClientConfig {
+  if (!import.meta.env.VITE_DT_ALGOD_SERVER) {
+    return getAlgodConfigFromViteEnvironment()
+  }
+
+  return {
+    server: import.meta.env.VITE_DT_ALGOD_SERVER,
+    port: import.meta.env.VITE_DT_ALGOD_PORT ?? '',
+    token: import.meta.env.VITE_DT_ALGOD_TOKEN ?? '',
+    network: import.meta.env.VITE_ALGOD_NETWORK,
+  }
+}

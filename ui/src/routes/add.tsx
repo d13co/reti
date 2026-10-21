@@ -10,14 +10,15 @@ import { PageMain } from '@/components/PageMain'
 import { AddValidatorForm } from '@/components/AddValidatorForm'
 
 export const Route = createFileRoute('/add')({
-  beforeLoad: ({ context }) => {
-    if (!context.walletManager.activeAddress) {
+  beforeLoad: ({ context, search }) => {
+    // Adding a validator is a write; there's nothing to do here while time travelling
+    if (!context.walletManager.activeAddress || search.round !== undefined) {
       throw redirect({
         to: '/',
       })
     }
   },
-  loader: ({ context: { queryClient } }) => queryClient.ensureQueryData(constraintsQueryOptions),
+  loader: ({ context: { queryClient } }) => queryClient.ensureQueryData(constraintsQueryOptions()),
   component: AddValidator,
   pendingComponent: () => <Loading size="lg" className="opacity-50" />,
   errorComponent: ({ error }) => {
@@ -31,7 +32,7 @@ export const Route = createFileRoute('/add')({
 })
 
 function AddValidator() {
-  const constraintsQuery = useSuspenseQuery(constraintsQueryOptions)
+  const constraintsQuery = useSuspenseQuery(constraintsQueryOptions())
   const constraints = constraintsQuery.data
 
   const { activeAddress } = useWallet()

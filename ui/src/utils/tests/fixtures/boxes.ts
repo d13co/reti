@@ -10,7 +10,7 @@ import {
   ValidatorCurState,
 } from '@/contracts/ValidatorRegistryClient'
 import { LocalPoolInfo } from '@/interfaces/validator'
-import { validatorBoxName } from '@/utils/contracts'
+import { boxNameForId } from '@/utils/bytes'
 import { LAST_ROUND } from '@/utils/tests/constants'
 import { ACCOUNT_1, ACCOUNT_2 } from '@/utils/tests/fixtures/accounts'
 import {
@@ -24,6 +24,9 @@ import {
   MOCK_VALIDATOR_2_STATE,
 } from '@/utils/tests/fixtures/validators'
 import { boxNameKey, createStaticArray } from '@/utils/tests/utils'
+
+/** A validator's box in the registry's `validatorList` BoxMap: `v` + uint64 id */
+const validatorBoxName = (validatorId: number) => boxNameForId('v', validatorId)
 
 export const DEFAULT_STAKED_INFO: StakedInfo = {
   account: ALGORAND_ZERO_ADDRESS_STRING,

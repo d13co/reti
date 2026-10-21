@@ -12,6 +12,7 @@ import {
   VisibilityState,
 } from '@tanstack/react-table'
 import { useWallet } from '@txnlab/use-wallet-react'
+import { useViewedTime, useWriteAddress } from '@/hooks/useAtRound'
 import { Ban, FlaskConical, MessageCircleWarning, MoreHorizontal, Sunset } from 'lucide-react'
 import * as React from 'react'
 import { AddStakeModal } from '@/components/AddStakeModal'
@@ -79,6 +80,9 @@ export function StakingTable({
   const [unstakeValidator, setUnstakeValidator] = React.useState<Validator | null>(null)
 
   const { transactionSigner, activeAddress } = useWallet()
+  const writeAddress = useWriteAddress()
+  // Re-renders when a past round's time lands, which the sunset checks in the cells read
+  useViewedTime()
 
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -206,11 +210,11 @@ export function StakingTable({
         const validatorId = row.original.validatorId
         const validator = validators.find((v) => BigInt(v.id) === BigInt(validatorId))
 
-        if (!validator || !activeAddress) return null
+        if (!validator || !writeAddress) return null
 
-        const stakingDisabled = isStakingDisabled(activeAddress, validator, constraints)
-        const unstakingDisabled = isUnstakingDisabled(activeAddress, validator, stakesByValidator)
-        const canManage = canManageValidator(activeAddress, validator)
+        const stakingDisabled = isStakingDisabled(writeAddress, validator, constraints)
+        const unstakingDisabled = isUnstakingDisabled(writeAddress, validator, stakesByValidator)
+        const canManage = canManageValidator(writeAddress, validator)
 
         const isDevelopment = process.env.NODE_ENV === 'development'
         const canSimulateEpoch = isDevelopment && canManage
@@ -275,7 +279,7 @@ export function StakingTable({
                             row.original.pools,
                             100,
                             transactionSigner,
-                            activeAddress,
+                            writeAddress,
                             queryClient,
                             router,
                           )

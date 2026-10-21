@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { Ban, Signpost } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { useViewedTime } from '@/hooks/useAtRound'
 import { Validator } from '@/interfaces/validator'
 import { isMigrationSet, isSunsetted } from '@/utils/contracts'
 import { dayjs } from '@/utils/dayjs'
@@ -10,6 +11,7 @@ interface SunsetNoticeProps {
 }
 
 export function SunsetNotice({ validator }: SunsetNoticeProps) {
+  const viewedTime = useViewedTime()
   return (
     <div className="flex flex-col gap-4 md:flex-row">
       <div className="w-full md:flex-1">
@@ -17,7 +19,8 @@ export function SunsetNotice({ validator }: SunsetNoticeProps) {
           <Ban className="h-5 w-5 -mt-[3px] text-muted-foreground" />
           <AlertTitle className="leading-normal">Sunset Notice</AlertTitle>
           <AlertDescription className="max-w-[60ch]">
-            Adding stake {isSunsetted(validator) ? 'was disabled as of' : 'will be disabled on'}{' '}
+            Adding stake{' '}
+            {isSunsetted(validator, viewedTime) ? 'was disabled as of' : 'will be disabled on'}{' '}
             {dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}. Stakers may still
             withdraw stake and rewards.
           </AlertDescription>

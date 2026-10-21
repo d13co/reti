@@ -6,9 +6,11 @@ import {
   validatorPoolsQueryOptions,
 } from '@/api/queries'
 import { StakedInfo } from '@/contracts/StakingPoolClient'
+import { useAtRound } from '@/hooks/useAtRound'
 import { LocalPoolInfo } from '@/interfaces/validator'
 import { ExplorerLink } from '@/utils/explorer'
 import { getNfdProfileUrl } from '@/utils/nfd'
+import { keepAcrossRounds } from '@/utils/round'
 
 interface UseChartDataProps {
   selectedPool: string
@@ -22,42 +24,61 @@ export function useStakersChartData({
   pauseRefetch = false,
 }: UseChartDataProps) {
   const queryClient = useQueryClient()
+  const { round } = useAtRound()
 
-  const poolsInfoQuery = useQuery({
-    ...validatorPoolsQueryOptions(validatorId),
-    enabled: !pauseRefetch,
-  })
+  // Moving to another round keeps the previous round's pools and stakers on screen until it loads
+  const poolsInfoQuery = useQuery(
+    keepAcrossRounds({
+      ...validatorPoolsQueryOptions(validatorId, round),
+      enabled: !pauseRefetch,
+    }),
+  )
   const poolsInfo = poolsInfoQuery.data || []
 
+  // useQueries matches its queries by key, so it can't carry a pool's stakers over to another
+  // round by itself: they come from the cache at the round last shown in full instead
+  const shownRound = React.useRef(round)
   const allStakedInfo = useQueries({
     queries: poolsInfo.map((pool) => ({
-      ...stakedInfoQueryOptions(pool.poolAppId),
+      ...stakedInfoQueryOptions(pool.poolAppId, round),
       enabled: !pauseRefetch,
+      placeholderData: () =>
+        queryClient.getQueryData(
+          stakedInfoQueryOptions(pool.poolAppId, shownRound.current).queryKey,
+        ),
     })),
   })
+  const loaded =
+    poolsInfoQuery.isSuccess &&
+    !poolsInfoQuery.isPlaceholderData &&
+    allStakedInfo.every((query) => query.isSuccess && !query.isPlaceholderData)
+  React.useEffect(() => {
+    if (loaded) shownRound.current = round
+  }, [loaded, round])
 
-  const poolsQueryKey = React.useMemo(() => ['validator-pools', String(validatorId)], [validatorId])
-
-  // Function to invalidate/refetch pools and staked info queries
+  // Function to invalidate/refetch pools and staked info queries. Only called after a write, so
+  // only ever needed live.
   const refetchAll = React.useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: poolsQueryKey })
+    const poolsQuery = validatorPoolsQueryOptions(validatorId)
+    await queryClient.invalidateQueries({ queryKey: poolsQuery.queryKey })
     // Wait for pools query to settle before refetching staked info
-    const pools = await queryClient.fetchQuery<LocalPoolInfo[]>({
-      queryKey: poolsQueryKey,
-    })
+    const pools: LocalPoolInfo[] = await queryClient.fetchQuery(poolsQuery)
     if (pools) {
       await Promise.all(
         pools.map((pool) =>
           queryClient.invalidateQueries({
-            queryKey: ['staked-info', pool.poolAppId.toString()],
+            queryKey: stakedInfoQueryOptions(pool.poolAppId).queryKey,
           }),
         ),
       )
     }
-  }, [queryClient, poolsQueryKey])
+  }, [queryClient, validatorId])
 
   const isLoading = poolsInfoQuery.isLoading || allStakedInfo.some((query) => query.isLoading)
   const isSuccess = poolsInfoQuery.isSuccess && allStakedInfo.every((query) => query.isSuccess)
+  // Showing the previous round's pools or stakers while this round's load
+  const refreshing =
+    poolsInfoQuery.isPlaceholderData || allStakedInfo.some((query) => query.isPlaceholderData)
   const isError = poolsInfoQuery.isError || allStakedInfo.some((query) => query.isError)
 
   const defaultMessage = isError ? 'An error occurred while loading staking data.' : undefined
@@ -130,6 +151,7 @@ export function useStakersChartData({
     stakersChartData,
     poolsInfo,
     isLoading,
+    refreshing,
     isError,
     errorMessage,
     isSuccess,

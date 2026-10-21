@@ -27,7 +27,7 @@ export interface LocalPoolInfo {
 
 /**
  * The four pieces of validator state that all live in the single `v` + validatorId box,
- * and can therefore be read for every validator in one paginated request.
+ * read for every validator in one batched simulate (see `fetchAllValidatorData`).
  */
 export interface ValidatorCoreData {
   id: number
@@ -71,17 +71,37 @@ export interface FindPoolForStakerResponse {
 
 // Used for calculating validator metrics
 export type PoolData = {
+  poolAppId?: bigint
   balance: bigint
   lastPayout?: bigint
   apy?: number
   extDeposits?: number
+  /** The pool's own count of rounds per day */
+  roundsPerDay?: bigint
 }
 
 /**
- * The parts of a staking pool's on-chain global state the UI reads. Every pool is created by
- * the registry's app account, so all of these can be read for every pool in one request.
+ * The parts of a staking pool's on-chain state the UI reads, all read for every pool in one
+ * batched simulate (see `fetchPoolGlobalStates`).
  */
 export type PoolGlobalState = {
   lastPayout?: bigint
+  /** Only written once the node daemon reports in */
   algodVer?: string
+  /**
+   * The pool's on-chain APY in percent, from its moving average. Reads too high for epochs longer
+   * than a day: see `epochAdjustedApy`.
+   */
+  apy: number
+  balance: bigint
+  minBalance: bigint
+  /** The pool's own count of rounds per day, which its moving average works in */
+  roundsPerDay?: bigint
 }
+
+/**
+ * Pools' global states by app id (as a decimal string). A plain object rather than a Map, so a
+ * refetch that changes nothing keeps the same object (TanStack Query's structural sharing) and
+ * doesn't re-render every observer.
+ */
+export type PoolGlobalStates = Readonly<Record<string, PoolGlobalState>>

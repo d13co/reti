@@ -1,23 +1,44 @@
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useWallet } from '@txnlab/use-wallet-react'
+import { seriesExtentQueryOptions } from '@/api/history'
 import {
   allValidatorsQueryOptions,
   constraintsQueryOptions,
   stakesQueryOptions,
 } from '@/api/queries'
+import { timeTravelSupportQueryOptions } from '@/api/reti'
 import { Loading } from '@/components/Loading'
 import { Meta } from '@/components/Meta'
 import { PageHeader } from '@/components/PageHeader'
 import { PageMain } from '@/components/PageMain'
 import { StakingTable } from '@/components/StakingTable'
+import { TotalsHistory } from '@/components/TimeTravel/TotalsHistory'
 import { ValidatorTable } from '@/components/ValidatorTable'
+import { useAtRound } from '@/hooks/useAtRound'
 import { useValidators } from '@/hooks/useValidators'
+import { parseRound } from '@/utils/round'
+
+const REGISTRY = { registry: true } as const
 
 export const Route = createFileRoute('/')({
-  beforeLoad: ({ context: { queryClient } }) => {
+  beforeLoad: ({ context: { queryClient }, search }) => {
+    const round = parseRound(search.round)
+
+    // The history charts go first: their first read goes out now, alongside the validator set,
+    // rather than once the page has rendered. Not awaited; the charts pick it up from the cache.
+    void queryClient
+      .ensureQueryData(timeTravelSupportQueryOptions)
+      .then(({ supported }) =>
+        supported
+          ? queryClient.prefetchQuery(seriesExtentQueryOptions(REGISTRY, round))
+          : undefined,
+      )
+      // The charts show the support check's own error, if any
+      .catch(() => {})
+
     // Prefetch every validator's core data in a single request
-    const options = allValidatorsQueryOptions(queryClient)
+    const options = allValidatorsQueryOptions(queryClient, round)
     const prefetch = queryClient.prefetchQuery(options)
 
     // Only a cold cache is worth blocking the route on. When the persisted cache was restored
@@ -36,13 +57,14 @@ export const Route = createFileRoute('/')({
 
 function Dashboard() {
   const { activeAddress } = useWallet()
+  const { round } = useAtRound()
 
-  const constraintsQuery = useSuspenseQuery(constraintsQueryOptions)
+  const constraintsQuery = useSuspenseQuery(constraintsQueryOptions(round))
   const constraints = constraintsQuery.data
 
   const { validators, isLoading: validatorsLoading, error: validatorsError } = useValidators()
 
-  const stakesQuery = useQuery(stakesQueryOptions(activeAddress))
+  const stakesQuery = useQuery(stakesQueryOptions(activeAddress, round))
   const stakesByValidator = stakesQuery.data || []
 
   if (validatorsError) {
@@ -65,6 +87,7 @@ function Dashboard() {
             constraints={constraints}
             isLoading={validatorsLoading || stakesQuery.isLoading}
           />
+          <TotalsHistory target={REGISTRY} title="Protocol history" />
           <ValidatorTable
             validators={validators}
             stakesByValidator={stakesByValidator}

@@ -1,23 +1,21 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ProgressBar } from '@tremor/react'
 import { Copy } from 'lucide-react'
-import { isPoolGlobalStateComplete } from '@/api/contracts'
-import {
-  nfdLookupQueryOptions,
-  poolGlobalStateQueryOptions,
-  poolGlobalStatesQueryOptions,
-} from '@/api/queries'
+import { nfdLookupQueryOptions, validatorPoolStatesQueryOptions } from '@/api/queries'
 import { AlgoDisplayAmount } from '@/components/AlgoDisplayAmount'
 import { Loading } from '@/components/Loading'
 import { NfdDisplay } from '@/components/NfdDisplay'
 import { Button } from '@/components/ui/button'
+import { Skeleton, SkeletonText } from '@/components/ui/skeleton'
 import { Constraints } from '@/contracts/ValidatorRegistryClient'
+import { useAtRound } from '@/hooks/useAtRound'
 import { LocalPoolInfo, Validator } from '@/interfaces/validator'
 import { calculateMaxAlgoPerPool } from '@/utils/contracts'
 import { copyToClipboard } from '@/utils/copyToClipboard'
 import { ellipseAddressJsx } from '@/utils/ellipseAddress'
 import { ExplorerLink } from '@/utils/explorer'
 import { roundToFirstNonZeroDecimal } from '@/utils/format'
+import { keepAcrossRounds } from '@/utils/round'
 import { nodeNumForPoolId } from '@/utils/pools'
 import { LinkPoolToNfdModal } from './LinkPoolToNfdModal'
 
@@ -40,24 +38,18 @@ export function StakingPoolInfo({
     nfdLookupQueryOptions(poolInfo?.poolAddress || null, { view: 'thumbnail' }, { cache: false }),
   )
 
-  // Not stored in the validator box. Comes from the same bulk read of every pool's global
-  // state that the dashboard's metrics use, so getting here is normally a cache hit.
-  const poolGlobalStatesQuery = useQuery(poolGlobalStatesQueryOptions)
-  const bulkPoolState = poolInfo ? poolGlobalStatesQuery.data?.get(poolInfo.poolAppId) : undefined
-
-  // The bulk read can come back without this pool, and can fail outright. Recover just this one
-  // rather than reporting the node as version "--" for the rest of the session. Gated on
-  // lastPayout, not on algodVer: a pool whose daemon has never reported has no algodVer to find,
-  // and re-reading it every time would put back the per-pool request the bulk read removed.
-  const poolStateIncomplete =
-    !!poolInfo && !poolGlobalStatesQuery.isPending && !isPoolGlobalStateComplete(bulkPoolState)
-
-  const poolGlobalStateQuery = useQuery({
-    ...poolGlobalStateQueryOptions(poolInfo?.poolAppId ?? 0n),
-    enabled: poolStateIncomplete,
-  })
-
-  const algodVersion = (poolStateIncomplete ? poolGlobalStateQuery.data : bulkPoolState)?.algodVer
+  // Not stored in the validator box. Comes from the same read of this validator's pools' global
+  // state that its metrics use (`useValidator`), so getting here is normally a cache hit.
+  const queryClient = useQueryClient()
+  const { round } = useAtRound()
+  const poolGlobalStatesQuery = useQuery(
+    keepAcrossRounds(
+      validatorPoolStatesQueryOptions(queryClient, validator.id, validator.pools, round),
+    ),
+  )
+  const algodVersion = poolInfo
+    ? poolGlobalStatesQuery.data?.[String(poolInfo.poolAppId)]?.algodVer
+    : undefined
 
   const numPools = validator.state.numPools
   const maxStakePerPool = calculateMaxAlgoPerPool(validator, constraints)
@@ -289,6 +281,53 @@ export function StakingPoolInfo({
                   />
                 </p>
                 <ProgressBar value={selectedPoolPercentFull} color="rose" className="mt-3" />
+              </div>
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  )
+}
+
+/** The rows a pool shows, before its first load. */
+const POOL_SKELETON_ROWS: [label: string, width: string, sample?: string][] = [
+  ['Address', 'w-28'],
+  ['Node Number', 'w-4'],
+  // Node versions are long and wrap: a typical one takes their lines
+  ['Algod version', 'font-mono', '5.0.0 rel/stable [00000000] : v1.4.0 [0000000]'],
+  ['Stakers', 'w-8'],
+]
+
+/** {@link StakingPoolInfo} for a pool while it first loads: the same rows, values to come. */
+export function StakingPoolInfoSkeleton() {
+  return (
+    <div className="w-full">
+      <div className="flex items-center justify-center gap-x-4 h-9 my-4 sm:justify-start">
+        <h4 className="text-xl font-semibold leading-none tracking-tight whitespace-nowrap">
+          <SkeletonText className="w-16" />
+        </h4>
+      </div>
+      <div className="border-t border-foreground-muted">
+        <dl className="divide-y divide-foreground-muted">
+          {POOL_SKELETON_ROWS.map(([label, width, sample]) => (
+            <div key={label} className="py-4 grid grid-cols-2 gap-4">
+              <dt className="text-sm font-medium leading-6 text-muted-foreground">{label}</dt>
+              <dd className={sample ? 'text-sm' : 'text-sm leading-6'}>
+                <SkeletonText className={width} sample={sample} />
+              </dd>
+            </div>
+          ))}
+          <div className="py-4">
+            <dt className="text-sm font-medium leading-6 text-muted-foreground">Staked</dt>
+            <dd className="text-sm leading-6">
+              <div className="w-full mt-1">
+                <div className="text-tremor-default flex items-center justify-between">
+                  <SkeletonText className="w-28" />
+                  <SkeletonText className="w-10" />
+                </div>
+                {/* Tremor's progress bar: an 8px track, 12px below */}
+                <Skeleton className="mt-3 h-2 w-full rounded-full" />
               </div>
             </dd>
           </div>

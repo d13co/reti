@@ -1,11 +1,13 @@
-import { useWallet } from '@txnlab/use-wallet-react'
+import { useWriteAddress } from '@/hooks/useAtRound'
 import { AlgoDisplayAmount } from '@/components/AlgoDisplayAmount'
 import { DisplayAsset } from '@/components/DisplayAsset'
 import { InfoPopover } from '@/components/InfoPopover'
 import { Loading } from '@/components/Loading'
 import { NfdDisplay } from '@/components/NfdDisplay'
 import { Tooltip } from '@/components/Tooltip'
+import { RefreshOverlay } from '@/components/RefreshOverlay'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { SkeletonText } from '@/components/ui/skeleton'
 import { EditCommissionAccount } from '@/components/ValidatorDetails/EditCommissionAccount'
 import { EditEntryGating } from '@/components/ValidatorDetails/EditEntryGating'
 import { EditManagerAccount } from '@/components/ValidatorDetails/EditManagerAccount'
@@ -28,13 +30,23 @@ const nfdAppUrl = getNfdAppFromViteEnvironment()
 interface DetailsProps {
   validator: Validator
   constraints: Constraints
+  /** The details are from the previous round while this one loads */
+  refreshing?: boolean
+  /** The validator has an NFD that hasn't loaded yet */
+  nfdPending?: boolean
 }
 
-export function Details({ validator, constraints }: DetailsProps) {
-  const { activeAddress } = useWallet()
-  const isOwner = activeAddress === validator.config.owner
+export function Details({
+  validator,
+  constraints,
+  refreshing = false,
+  nfdPending = false,
+}: DetailsProps) {
+  // Null while time travelling, which hides every edit below
+  const writeAddress = useWriteAddress()
+  const isOwner = writeAddress === validator.config.owner
 
-  const rewardBalanceQuery = useRewardBalance(validator)
+  const rewardBalanceQuery = useRewardBalance(validator, refreshing)
   const calculatedMaxAlgoPerPool = calculateMaxAlgoPerPool(validator, constraints)
 
   const renderRewardBalance = () => {
@@ -153,7 +165,7 @@ export function Details({ validator, constraints }: DetailsProps) {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Card className="lg:col-span-3">
+      <Card className="relative lg:col-span-3" aria-busy={refreshing}>
         <CardHeader>
           <CardTitle as="h2">Validator Details</CardTitle>
         </CardHeader>
@@ -212,13 +224,15 @@ export function Details({ validator, constraints }: DetailsProps) {
                 </dd>
               </div>
 
-              {(isOwner || validator.nfd) && (
+              {(isOwner || validator.nfd || nfdPending) && (
                 <div className="py-4 grid grid-cols-[2fr_3fr] gap-4 xl:grid-cols-2">
                   <dt className="flex items-center text-sm font-medium leading-normal text-muted-foreground">
                     Associated NFD
                   </dt>
                   <dd className="flex items-center justify-between gap-x-2 text-sm font-medium leading-normal">
-                    {validator.nfd ? (
+                    {nfdPending ? (
+                      <SkeletonText className="w-24" />
+                    ) : validator.nfd ? (
                       <Tooltip content={validator.nfd.name}>
                         <a
                           href={`${nfdAppUrl}/name/${validator.nfd.name}`}
@@ -374,6 +388,49 @@ export function Details({ validator, constraints }: DetailsProps) {
                   </dd>
                 </div>
               ) : null}
+            </dl>
+          </div>
+        </CardContent>
+        <RefreshOverlay active={refreshing} tall />
+      </Card>
+    </div>
+  )
+}
+
+/** The rows every validator has, which is what the card shows before it loads. */
+const SKELETON_ROWS: [label: string, width: string][] = [
+  ['Validator ID', 'w-8'],
+  ['Owner', 'w-28'],
+  ['Manager', 'w-28'],
+  ['Commission Account', 'w-28'],
+  ['Minimum Entry Stake', 'w-16'],
+  ['Max Stake Per Pool', 'w-24'],
+  ['Epoch Length', 'w-24'],
+  ['Commission Rate', 'w-10'],
+  ['Pools Per Node', 'w-4'],
+]
+
+/** {@link Details} while the validator first loads: the same card and rows, values to come. */
+export function DetailsSkeleton() {
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Card className="lg:col-span-3" aria-busy>
+        <CardHeader>
+          <CardTitle as="h2">Validator Details</CardTitle>
+        </CardHeader>
+        <CardContent className="w-full">
+          <div className="border-t border-foreground-muted">
+            <dl className="divide-y divide-foreground-muted">
+              {SKELETON_ROWS.map(([label, width]) => (
+                <div key={label} className="py-4 grid grid-cols-[2fr_3fr] gap-4 xl:grid-cols-2">
+                  <dt className="text-sm font-medium leading-normal text-muted-foreground">
+                    {label}
+                  </dt>
+                  <dd className="text-sm leading-normal">
+                    <SkeletonText className={width} />
+                  </dd>
+                </div>
+              ))}
             </dl>
           </div>
         </CardContent>

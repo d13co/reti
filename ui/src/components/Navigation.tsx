@@ -1,9 +1,10 @@
 import { Link } from '@tanstack/react-router'
-import { useWallet } from '@txnlab/use-wallet-react'
+import { useWriteAddress } from '@/hooks/useAtRound'
 import { ArrowUpRight } from 'lucide-react'
 
 export function Navigation() {
-  const { activeAddress } = useWallet()
+  // Adding a validator is a write, so the link is hidden while time travelling
+  const activeAddress = useWriteAddress()
   const isTestnet = import.meta.env.VITE_ALGOD_NETWORK === 'testnet'
 
   return (

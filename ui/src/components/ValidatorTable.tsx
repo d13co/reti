@@ -16,6 +16,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { useWallet } from '@txnlab/use-wallet-react'
+import { useViewedTime, useWriteAddress } from '@/hooks/useAtRound'
 import { Ban, ChevronRight, FlaskConical, MoreHorizontal, Sunset } from 'lucide-react'
 import * as React from 'react'
 import { AddPoolModal } from '@/components/AddPoolModal'
@@ -91,7 +92,11 @@ export function ValidatorTable({
   const [unstakeValidator, setUnstakeValidator] = React.useState<Validator | null>(null)
   const [addPoolValidator, setAddPoolValidator] = React.useState<Validator | null>(null)
 
-  const { transactionSigner, activeAddress } = useWallet()
+  const { transactionSigner } = useWallet()
+  const writeAddress = useWriteAddress()
+  // The time shown, which the sunset checks (and the sunset filter) read: a past round's can
+  // land after the table first renders
+  const viewedTime = useViewedTime()
 
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -210,7 +215,7 @@ export function ValidatorTable({
         const content = React.useMemo(() => {
           return (
             <div className="flex items-center gap-x-2 min-w-0 max-w-[10rem] xl:max-w-[16rem]">
-              {isSunsetted(validator) ? (
+              {isSunsetted(validator, viewedTime) ? (
                 <Tooltip
                   content={`Sunset on ${dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}`}
                 >
@@ -227,7 +232,7 @@ export function ValidatorTable({
                 <ValidatorNfdDisplay
                   nfd={nfd}
                   validatorId={validator.id}
-                  isSunsetted={isSunsetted(validator)}
+                  isSunsetted={isSunsetted(validator, viewedTime)}
                 />
               ) : (
                 <Link
@@ -243,7 +248,7 @@ export function ValidatorTable({
               )}
             </div>
           )
-        }, [validator, nfd])
+        }, [validator, nfd, viewedTime])
 
         return content
       },
@@ -379,10 +384,10 @@ export function ValidatorTable({
       cell: ({ row }) => {
         const validator = row.original
         const firstPoolFull = isFirstPoolFull(validator, constraints)
-        const stakingDisabled = isStakingDisabled(activeAddress, validator, constraints)
-        const unstakingDisabled = isUnstakingDisabled(activeAddress, validator, stakesByValidator)
-        const addingPoolDisabled = isAddingPoolDisabled(activeAddress, validator, constraints)
-        const canManage = canManageValidator(activeAddress, validator)
+        const stakingDisabled = isStakingDisabled(writeAddress, validator, constraints)
+        const unstakingDisabled = isUnstakingDisabled(writeAddress, validator, stakesByValidator)
+        const addingPoolDisabled = isAddingPoolDisabled(writeAddress, validator, constraints)
+        const canManage = canManageValidator(writeAddress, validator)
 
         const isDevelopment = process.env.NODE_ENV === 'development'
         const hasRewardToken = validator.config.rewardTokenId > 0
@@ -419,7 +424,7 @@ export function ValidatorTable({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
-                {!!activeAddress && (
+                {!!writeAddress && (
                   <>
                     <DropdownMenuGroup>
                       <DropdownMenuItem
@@ -455,7 +460,7 @@ export function ValidatorTable({
                                   stakerPoolData,
                                   100,
                                   transactionSigner,
-                                  activeAddress!,
+                                  writeAddress!,
                                   queryClient,
                                   router,
                                 )
@@ -479,7 +484,7 @@ export function ValidatorTable({
                                   validator,
                                   5000,
                                   transactionSigner,
-                                  activeAddress!,
+                                  writeAddress!,
                                 )
                               }}
                               disabled={sendRewardTokensDisabled}
@@ -514,8 +519,11 @@ export function ValidatorTable({
     },
   ]
 
+  // A new array when the time shown changes, so the table re-runs the sunset filter
+  const data = React.useMemo(() => [...validators], [validators, viewedTime])
+
   const table = useReactTable<Validator>({
-    data: validators,
+    data,
     columns,
     filterFns: {
       global: globalFilterFn,

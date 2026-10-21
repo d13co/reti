@@ -1,12 +1,19 @@
 import { QueryClient } from '@tanstack/react-query'
 import {
+  Persister,
   persistQueryClientRestore,
   persistQueryClientSave,
 } from '@tanstack/react-query-persist-client'
-import { createQueryCachePersister, persistOptions } from '@/lib/queryPersister'
+import type { MockInstance } from 'vitest'
+import {
+  createQueryCachePersister,
+  PERSISTED_GC_TIME,
+  persistOptions,
+  subscribeQueryCachePersistence,
+} from '@/lib/queryPersister'
+import { roundKey } from '@/utils/round'
 
-// No write throttling, so a test doesn't have to wait out the real coalescing window
-const persister = createQueryCachePersister(0)
+const persister = createQueryCachePersister()
 
 const BUSTER = 'test-buster'
 
@@ -30,6 +37,7 @@ async function restore(buster = BUSTER) {
     persister,
     buster,
     maxAge: persistOptions.maxAge,
+    hydrateOptions: persistOptions.hydrateOptions,
   })
   return queryClient
 }
@@ -49,11 +57,11 @@ describe('query cache persister', () => {
     }
 
     const source = new QueryClient()
-    source.setQueryData(['validator-metrics', '1'], metrics)
+    source.setQueryData(['validator-metrics', '1', 'latest'], metrics)
     await save(source)
 
     const restored = await restore()
-    const data = restored.getQueryData<typeof metrics>(['validator-metrics', '1'])
+    const data = restored.getQueryData<typeof metrics>(['validator-metrics', '1', 'latest'])
 
     expect(typeof data?.rewardsBalance).toBe('bigint')
     expect(data).toEqual(metrics)
@@ -77,7 +85,7 @@ describe('query cache persister', () => {
     expect(restored.getQueryData(['all-validators'])).toEqual(validators)
   })
 
-  it('round trips a Map keyed by bigint, as the bulk pool state read returns', async () => {
+  it('round trips a Map keyed by bigint', async () => {
     const poolGlobalStates = new Map([
       [1010n, { lastPayout: 1000n, algodVer: '3.23.1' }],
       [1011n, { algodVer: '3.23.1' }],
@@ -110,6 +118,18 @@ describe('query cache persister', () => {
     expect(restored.getQueryData(['stakes', { staker: 'ADDR' }])).toBeUndefined()
   })
 
+  it('persists the latest state but not reads pinned to a past round', async () => {
+    const source = new QueryClient()
+    source.setQueryData(['all-validators', roundKey(undefined)], ['latest'])
+    source.setQueryData(['all-validators', roundKey(50_000_000n)], ['past'])
+    await save(source)
+
+    const restored = await restore()
+
+    expect(restored.getQueryData(['all-validators', roundKey(undefined)])).toEqual(['latest'])
+    expect(restored.getQueryData(['all-validators', roundKey(50_000_000n)])).toBeUndefined()
+  })
+
   it('discards a cache written by a different app version', async () => {
     const source = new QueryClient()
     source.setQueryData(['all-validators'], ['stale-shape'])
@@ -119,5 +139,52 @@ describe('query cache persister', () => {
 
     expect(restored.getQueryData(['all-validators'])).toBeUndefined()
     expect(await persister.restoreClient()).toBeUndefined()
+  })
+
+  it('keeps restored queries for the persisted gcTime, not the 5 minute default', async () => {
+    const source = new QueryClient()
+    source.setQueryData(['all-validators', roundKey(undefined)], ['latest'])
+    await save(source)
+
+    const restored = await restore()
+    const query = restored.getQueryCache().find({ queryKey: ['all-validators', 'latest'] })
+
+    expect(query?.gcTime).toBe(PERSISTED_GC_TIME)
+  })
+})
+
+describe('subscribeQueryCachePersistence', () => {
+  const WAIT = 20
+  const settle = () => new Promise((resolve) => setTimeout(resolve, WAIT * 3))
+
+  let persistClient: MockInstance<Persister['persistClient']>
+  beforeEach(() => {
+    persistClient = vi.spyOn(persistOptions.persister, 'persistClient')
+  })
+  afterEach(() => {
+    persistClient.mockRestore()
+  })
+
+  it('coalesces a burst of persisted changes into one save', async () => {
+    const queryClient = new QueryClient()
+    const unsubscribe = subscribeQueryCachePersistence(queryClient, WAIT)
+    for (let id = 1; id <= 20; id++) {
+      queryClient.setQueryData(['validator-metrics', String(id), roundKey(undefined)], { id })
+    }
+    await settle()
+    unsubscribe()
+
+    expect(persistClient).toHaveBeenCalledTimes(1)
+  })
+
+  it('never saves for reads pinned to a past round or keys that are not persisted', async () => {
+    const queryClient = new QueryClient()
+    const unsubscribe = subscribeQueryCachePersistence(queryClient, WAIT)
+    queryClient.setQueryData(['all-validators', roundKey(50_000_000n)], ['past'])
+    queryClient.setQueryData(['account-balance', 'ADDR'], 1000n)
+    await settle()
+    unsubscribe()
+
+    expect(persistClient).not.toHaveBeenCalled()
   })
 })

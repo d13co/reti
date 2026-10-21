@@ -8,6 +8,8 @@ import { Logo } from '@/components/Logo'
 import { MobileMenu } from '@/components/MobileMenu'
 import { ModeToggle } from '@/components/ModeToggle'
 import { Navigation } from '@/components/Navigation'
+import { TimeTravelBanner } from '@/components/TimeTravel/TimeTravelBanner'
+import { TimeTravelControl } from '@/components/TimeTravel/TimeTravelControl'
 import { Badge } from '@/components/ui/badge'
 
 interface LayoutProps {
@@ -45,6 +47,7 @@ export function Layout({ children }: LayoutProps) {
               </div>
             </div>
             <div className="flex items-center gap-x-2">
+              <TimeTravelControl />
               <div className="flex-shrink-0">
                 {activeAddress ? <ConnectedMenu activeAddress={activeAddress} /> : <Connect />}
               </div>
@@ -54,6 +57,8 @@ export function Layout({ children }: LayoutProps) {
           </div>
         </div>
       </nav>
+
+      <TimeTravelBanner />
 
       {children}
 

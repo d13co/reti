@@ -1,9 +1,14 @@
 import { HttpResponse, http } from 'msw'
 import { BoxValuesUnsupportedError, fetchAppBoxes } from '@/api/algod'
 import { server } from '@/utils/tests/msw/server'
-import { VALIDATOR_BOX_PREFIX, decodeValidatorBoxName } from '@/utils/contracts'
+import { idFromBoxName } from '@/utils/bytes'
 
 const RETI_APP_ID = 1002n
+
+/** The registry's validator boxes are the fixture's prefixed boxes: `v` + uint64 id */
+const VALIDATOR_BOX_PREFIX = 'v'
+const decodeValidatorBoxName = (name: Uint8Array) =>
+  Number(idFromBoxName(VALIDATOR_BOX_PREFIX, name))
 
 describe('fetchAppBoxes', () => {
   it('returns every box with its value in a single request', async () => {

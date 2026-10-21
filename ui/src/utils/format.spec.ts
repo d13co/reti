@@ -5,6 +5,7 @@ import {
   formatAlgoAmount,
   formatAssetAmount,
   formatAmount,
+  formatSampleInterval,
   formatWithPrecision,
   roundToFirstNonZeroDecimal,
   roundToWholeAlgos,
@@ -331,5 +332,23 @@ describe('roundToWholeAlgos', () => {
 
     const bigintResult = roundToWholeAlgos(1500000n)
     expect(typeof bigintResult).toBe('bigint')
+  })
+})
+
+describe('formatSampleInterval', () => {
+  it('uses minutes under an hour', () => {
+    expect(formatSampleInterval(20)).toBe('minute')
+    expect(formatSampleInterval(45 * 60)).toBe('45 minutes')
+  })
+
+  it('uses hours under two days', () => {
+    expect(formatSampleInterval(60 * 60)).toBe('hour')
+    expect(formatSampleInterval(17.6 * 3600)).toBe('18 hours')
+    expect(formatSampleInterval(47 * 3600)).toBe('47 hours')
+  })
+
+  it('uses days from two days', () => {
+    expect(formatSampleInterval(48 * 3600)).toBe('2 days')
+    expect(formatSampleInterval(24.3 * 86400)).toBe('24 days')
   })
 })

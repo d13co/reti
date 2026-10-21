@@ -279,3 +279,18 @@ export function roundToWholeAlgos<T extends number | bigint>(microalgos: T): T {
     return (Math.round(abs / 1e6) * 1e6 * sign) as T
   }
 }
+
+/**
+ * A time between samples in the largest whole unit that fits, e.g. `18 hours` or `day`, to follow
+ * "every". Minutes up to an hour, hours up to two days, days after that.
+ */
+export function formatSampleInterval(seconds: number): string {
+  const minutes = seconds / 60
+  const [count, unit] =
+    minutes < 60
+      ? [Math.max(1, Math.round(minutes)), 'minute']
+      : minutes < 48 * 60
+        ? [Math.round(minutes / 60), 'hour']
+        : [Math.round(minutes / (24 * 60)), 'day']
+  return count === 1 ? unit : `${count} ${unit}s`
+}

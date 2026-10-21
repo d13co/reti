@@ -1,12 +1,33 @@
 // import { useWallet } from '@txnlab/use-wallet-react'
 import { NfdDisplay } from '@/components/NfdDisplay'
+import { Skeleton, SkeletonText } from '@/components/ui/skeleton'
 import { Validator } from '@/interfaces/validator'
 
 interface DetailsHeaderProps {
-  validator: Validator
+  /** Undefined while the page first loads */
+  validator?: Validator
+  /** The validator has an NFD that hasn't loaded yet: its name, avatar and bio are to come */
+  nfdPending?: boolean
 }
 
-export function DetailsHeader({ validator }: DetailsHeaderProps) {
+export function DetailsHeader({ validator, nfdPending = false }: DetailsHeaderProps) {
+  if (!validator || nfdPending) {
+    return (
+      <header
+        className="mx-auto flex flex-col items-center gap-2 py-8 md:py-12 md:pb-8 max-w-3xl"
+        aria-busy
+      >
+        <h1 className="flex items-center gap-3 sm:gap-4 text-center text-3xl font-bold leading-tight tracking-tighter md:text-6xl lg:leading-[1.1] text-balance">
+          <Skeleton className="h-8 w-8 rounded-full sm:h-16 sm:w-16" />
+          <SkeletonText className="w-48 md:w-72" />
+        </h1>
+        <span className="px-4 text-base sm:text-xl">
+          <SkeletonText className="w-64 max-w-full" />
+        </span>
+      </header>
+    )
+  }
+
   // const { activeAddress } = useWallet()
 
   // const isManager = validator.config.manager === activeAddress

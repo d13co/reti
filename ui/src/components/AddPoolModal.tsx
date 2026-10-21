@@ -104,11 +104,11 @@ export function AddPoolModal({
 
   const availableBalance = amount - minBalance < 0n ? 0n : amount - minBalance
 
-  const mbrQuery = useQuery(mbrQueryOptions)
+  const mbrQuery = useQuery(mbrQueryOptions())
   const { addPoolMbr = 0n, poolInitMbr = 0n } = mbrQuery.data || {}
 
   const assignmentQuery = useQuery(
-    validatorNodePoolAssignmentsQueryOptions(validator?.id || 0, !!validator),
+    validatorNodePoolAssignmentsQueryOptions(validator?.id || 0, undefined, !!validator),
   )
   const poolAssignment = assignmentQuery.data || poolAssignmentProp
 

@@ -1,9 +1,11 @@
 import { AlgoAmount } from '@algorandfoundation/algokit-utils/types/amount'
 import { ClientManager } from '@algorandfoundation/algokit-utils/types/client-manager'
 import algosdk from 'algosdk'
-import { AccountBalance, AlgodHttpError, AssetCreatorHolding, Exclude } from '@/interfaces/algod'
+import { sdkAt } from '@/api/reti'
+import { AccountBalance, AlgodHttpError, Exclude } from '@/interfaces/algod'
 import { BigMath } from '@/utils/bigint'
 import { getAlgodConfigFromViteEnvironment } from '@/utils/network/getAlgoClientConfigs'
+import { isRoundUnavailable } from '@/utils/round'
 
 const algodConfig = getAlgodConfigFromViteEnvironment()
 const algodClient = ClientManager.getAlgodClient({
@@ -20,32 +22,10 @@ export async function fetchAccountInformation(
   return accountInfo
 }
 
-export async function fetchAccountBalance(
-  address: string,
-  availableBalance = false,
-): Promise<bigint> {
-  const accountInfo = await fetchAccountInformation(address, 'all')
-
-  return availableBalance ? accountInfo.amount - accountInfo.minBalance : accountInfo.amount
-}
-
 export async function fetchAsset(assetId: bigint | number): Promise<algosdk.modelsv2.Asset> {
   try {
     const asset = await algodClient.getAssetByID(assetId).do()
     return asset
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    if (error.message && error.response) {
-      throw new AlgodHttpError(error.message, error.response)
-    } else {
-      throw error
-    }
-  }
-}
-
-export async function fetchApplication(appId: bigint): Promise<algosdk.modelsv2.Application> {
-  try {
-    return await algodClient.getApplicationByID(appId).do()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     if (error.message && error.response) {
@@ -71,17 +51,6 @@ export async function fetchBalance(address: string | null): Promise<AccountBalan
     available: AlgoAmount.MicroAlgos(available),
     minimum: AlgoAmount.MicroAlgos(minimum),
   }
-}
-
-export async function fetchAssetHoldings(
-  address: string | null,
-): Promise<algosdk.modelsv2.AssetHolding[]> {
-  if (!address) {
-    throw new Error('No address provided')
-  }
-  const accountInfo = await fetchAccountInformation(address)
-  const assets = accountInfo.assets || []
-  return assets
 }
 
 export async function fetchAccountAssetInformation(
@@ -118,44 +87,6 @@ export async function isOptedInToAsset(address: string | null, assetId: bigint):
       throw error
     }
   }
-}
-
-export async function fetchAssetCreatorHoldings(
-  address: string | null,
-): Promise<AssetCreatorHolding[]> {
-  if (!address) {
-    throw new Error('No address provided')
-  }
-  const assetHoldings = await fetchAssetHoldings(address)
-
-  const chunkArray = <T>(arr: T[], chunkSize: number): T[][] => {
-    const chunks: T[][] = []
-    for (let i = 0; i < arr.length; i += chunkSize) {
-      chunks.push(arr.slice(i, i + chunkSize))
-    }
-    return chunks
-  }
-
-  const allAssetCreatorHoldings: AssetCreatorHolding[] = []
-  const batchSize = 10
-
-  // Split the assetHoldings into batches of 10
-  const batches = chunkArray(assetHoldings, batchSize)
-
-  for (const batch of batches) {
-    const promises = batch.map((holding) => fetchAsset(holding.assetId))
-    const assets = await Promise.all(promises)
-    const assetCreatorHoldings = assets.map((asset, index) => {
-      return {
-        ...batch[index],
-        // algosdk 3.6 types params as optional; an empty creator simply matches no address
-        creator: asset.params?.creator ?? '',
-      }
-    })
-    allAssetCreatorHoldings.push(...assetCreatorHoldings)
-  }
-
-  return allAssetCreatorHoldings
 }
 
 export interface AppBox {
@@ -280,48 +211,23 @@ export async function fetchAppBoxes(
 }
 
 /**
- * Fetches a single box value by name.
- */
-export async function fetchAppBoxValue(appId: bigint, name: Uint8Array): Promise<Uint8Array> {
-  try {
-    const response = await algodClient.getApplicationBoxByName(appId, name).do()
-    return response.value
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    if (error.message && error.response) {
-      throw new AlgodHttpError(error.message, error.response)
-    }
-    throw error
-  }
-}
-
-/**
- * Fetches timestamps for the last `numRounds` blocks
+ * Fetches the timestamps of the `numRounds` blocks before `round` (the latest when undefined),
+ * oldest first, in one simulate through the read node.
+ * @param {bigint} round - The round to look back from
  * @param {number} numRounds - The number of rounds to fetch
  * @return {number[]} - An array of timestamps for each block
  */
-export async function fetchBlockTimes(numRounds: number = 10): Promise<number[]> {
+export async function fetchBlockTimes(
+  round?: bigint,
+  numRounds: number = 10,
+  signal?: AbortSignal,
+): Promise<number[]> {
   try {
-    const status = await algodClient.status().do()
-    if (!status) {
-      throw new Error('Failed to fetch node status')
-    }
-
-    const lastRound = Number(status.lastRound)
-
-    const blockTimes: number[] = []
-    for (let round = lastRound - numRounds; round < lastRound; round++) {
-      try {
-        const blockResponse = await algodClient.block(round).do()
-        const block = blockResponse.block
-        blockTimes.push(Number(block.header.timestamp))
-      } catch (error) {
-        throw new Error(`Unable to fetch block for round ${round}: ${error}`)
-      }
-    }
-
-    return blockTimes
+    const timestamps = await sdkAt(round).getBlockTimestamps(numRounds, { signal })
+    return timestamps.map(Number)
   } catch (error) {
+    // Kept as is: aborted, or a round that can't be shown (which mustn't be retried)
+    if (signal?.aborted || isRoundUnavailable(error)) throw error
     throw new Error(`An error occurred during block time calculation: ${error}`)
   }
 }
