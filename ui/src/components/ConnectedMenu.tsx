@@ -1,6 +1,6 @@
 import { useWallet } from '@txnlab/use-wallet-react'
 import { Link } from '@tanstack/react-router'
-import { Copy, History } from 'lucide-react'
+import { Copy, History, LogOut } from 'lucide-react'
 import { SelectAccount } from '@/components/SelectAccount'
 import { Button } from '@/components/ui/button'
 import {
@@ -67,6 +67,7 @@ export function ConnectedMenu({ activeAddress }: ConnectedMenuProps) {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => activeWallet?.disconnect()}>
+            <LogOut className="mr-2 h-4 w-4 opacity-60" aria-hidden />
             Disconnect
             <DropdownMenuShortcut className="hidden lg:inline">⇧D</DropdownMenuShortcut>
           </DropdownMenuItem>
