@@ -28,9 +28,15 @@ import {
 
 export const Route = createFileRoute('/validators_/$validatorId')({
   loaderDeps: ({ search }) => ({ round: search.round }),
-  loader: async ({ context: { queryClient }, params, deps }) => {
+  loader: async ({ context: { queryClient, walletManager }, params, deps }) => {
     const validatorId = Number(params.validatorId)
     const round = parseRound(deps.round)
+
+    // The connected account's own stakes go first: the history chart and the pool metrics wait
+    // for them (see useOwnStakesFirst). Not awaited; the page picks them up from the cache.
+    if (walletManager.activeAddress) {
+      void queryClient.prefetchQuery(stakesQueryOptions(walletManager.activeAddress, round))
+    }
 
     // Moving to another round of a validator already on screen: don't hold the page. It keeps
     // showing the round it has, with each section marked as loading, until this one arrives.

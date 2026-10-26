@@ -23,6 +23,7 @@ import { GatingType } from '@/constants/gating'
 import { useAtRound } from '@/hooks/useAtRound'
 import { useQueuedQueries } from '@/hooks/useQueuedQueries'
 import { useExtrasReady } from '@/hooks/useExtrasReady'
+import { useOwnStakesFirst } from '@/hooks/useOwnStakesFirst'
 import { Validator } from '@/interfaces/validator'
 import { findValidatorPerf } from '@/utils/nodely'
 
@@ -110,8 +111,13 @@ export function useValidators(): {
   const gatingAssetQueries = useQueuedQueries(gatingAssetQueryOptions, { host: 'algod' })
   const nfdQueries = useQueuedQueries(nfdQueryOptionsList, { host: 'nfd' })
 
-  // Every pool's lastPayout in one request, shared by all the metrics queries below
-  const poolGlobalStatesQuery = useQuery(poolGlobalStatesQueryOptions(queryClient, round))
+  // Every pool's lastPayout in one request, shared by all the metrics queries below. After the
+  // connected account's own stakes: the metrics and APY columns that wait on it come second.
+  const ownStakesFirst = useOwnStakesFirst()
+  const poolGlobalStatesQuery = useQuery({
+    ...poolGlobalStatesQueryOptions(queryClient, round),
+    enabled: ownStakesFirst,
+  })
 
   // Memoize metrics query options
   const metricsQueries = React.useMemo(

@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton, SkeletonText } from '@/components/ui/skeleton'
 import { useAtRound } from '@/hooks/useAtRound'
+import { useOwnStakesFirst } from '@/hooks/useOwnStakesFirst'
 import { useSetRound } from '@/hooks/useSetRound'
 import { dayjs } from '@/utils/dayjs'
 import { formatAmount, formatSampleInterval } from '@/utils/format'
@@ -223,11 +224,13 @@ export function TotalsHistory({ target, title, className }: TotalsHistoryProps) 
   const [range, setRange] = React.useState<HistoryRange>(DEFAULT_RANGE)
 
   const supported = !!supportQuery.data?.supported
+  // The connected account's own stakes load first
+  const ownStakesFirst = useOwnStakesFirst()
 
   // The target's whole history: which ranges apply, and what each range's window is cut from
   const extentQuery = useQuery({
     ...seriesExtentQueryOptions(target, round),
-    enabled: supported,
+    enabled: supported && ownStakesFirst,
     placeholderData: keepSameTarget(target),
   })
   const extent = extentQuery.data

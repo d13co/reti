@@ -22,13 +22,20 @@ import { parseRound } from '@/utils/round'
 const REGISTRY = { registry: true } as const
 
 export const Route = createFileRoute('/')({
-  beforeLoad: ({ context: { queryClient }, search }) => {
+  beforeLoad: ({ context: { queryClient, walletManager }, search }) => {
     const round = parseRound(search.round)
 
-    // The history charts go first: their first read goes out now, alongside the validator set,
-    // rather than once the page has rendered. Not awaited; the charts pick it up from the cache.
-    void queryClient
-      .ensureQueryData(timeTravelSupportQueryOptions)
+    // The connected account's own stakes go first, alongside the validator set the table names
+    // them from; the page would otherwise only ask once the validator set had loaded
+    const address = walletManager.activeAddress
+    const ownStakes = address
+      ? queryClient.prefetchQuery(stakesQueryOptions(address, round))
+      : Promise.resolve()
+
+    // Then the history charts: their first read goes out from here rather than once the page has
+    // rendered. Not awaited; the charts pick it up from the cache.
+    void ownStakes
+      .then(() => queryClient.ensureQueryData(timeTravelSupportQueryOptions))
       .then(({ supported }) =>
         supported
           ? queryClient.prefetchQuery(seriesExtentQueryOptions(REGISTRY, round))
