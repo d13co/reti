@@ -23,8 +23,8 @@
   },
   "pnpm": {
     "overrides": {
-      "algosdk": "file:ui/vendor/algosdk-3.8.0-dt.2.tgz",
-      "@algorandfoundation/algokit-utils": "file:ui/vendor/algorandfoundation-algokit-utils-9.2.3-dt.2.tgz"
+      "algosdk": "file:ui/vendor/dtalgosdk-3.9.0-dt.2.0.1.0.tgz",
+      "@algorandfoundation/algokit-utils": "file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.2.0.1.0.tgz"
     }
   }
 }
