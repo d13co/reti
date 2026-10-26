@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import algosdk from 'algosdk'
 import { History, MessageCircleWarning } from 'lucide-react'
@@ -8,7 +8,7 @@ import {
   type StakeEvent,
   type StakerPoolMembership,
 } from '@/api/history'
-import { allValidatorsQueryOptions, nfdLookupQueryOptions } from '@/api/queries'
+import { allValidatorsQueryOptions, nfdLookupQueryOptions, nfdQueryOptions } from '@/api/queries'
 import { timeTravelSupportQueryOptions } from '@/api/reti'
 import { AlgoDisplayAmount } from '@/components/AlgoDisplayAmount'
 import { ErrorAlert } from '@/components/ErrorAlert'
@@ -106,6 +106,11 @@ function HistoryBody({ address }: { address: string }) {
     [history?.events, validatorFilter, kindFilter],
   )
 
+  const validatorIds = [...new Set((pools ?? []).map((pool) => Number(pool.validatorId)))].sort(
+    (a, b) => a - b,
+  )
+  const validatorNames = useValidatorNames(validatorIds, validatorsQuery.data)
+
   if (supported === false) {
     return (
       <div className="py-10">
@@ -123,9 +128,6 @@ function HistoryBody({ address }: { address: string }) {
 
   const complete = !!history?.complete
   const loadingRows = complete ? 0 : events.length === 0 ? LOADING_ROWS.first : LOADING_ROWS.more
-  const validatorIds = [...new Set((pools ?? []).map((pool) => Number(pool.validatorId)))].sort(
-    (a, b) => a - b,
-  )
 
   return (
     <div className="py-10 space-y-6">
@@ -146,14 +148,14 @@ function HistoryBody({ address }: { address: string }) {
             {!complete && !query.isError && <Loading size="sm" inline className="ml-1" />}
           </h2>
           <Select value={validatorFilter} onValueChange={setValidatorFilter}>
-            <SelectTrigger className="w-[170px]" aria-label="Filter by validator">
+            <SelectTrigger className="w-[220px]" aria-label="Filter by validator">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All validators</SelectItem>
               {validatorIds.map((id) => (
                 <SelectItem key={id} value={String(id)}>
-                  Validator {id}
+                  {validatorNames.get(id) ?? `Validator ${id}`}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -182,6 +184,32 @@ function HistoryBody({ address }: { address: string }) {
       </div>
     </div>
   )
+}
+
+/**
+ * The NFD names of validators that have one, by id, as they resolve. Shares its lookups with the
+ * table's names (same queries), so it adds no requests.
+ */
+function useValidatorNames(
+  validatorIds: number[],
+  validators?: { id: number; config: { nfdForInfo: bigint } }[],
+): Map<number, string> {
+  const nfdAppIds = validatorIds.map(
+    (id) => validators?.find((v) => v.id === id)?.config.nfdForInfo ?? 0n,
+  )
+  const nfdQueries = useQueries({
+    queries: nfdAppIds.map((nfdAppId) => ({
+      ...nfdQueryOptions(nfdAppId),
+      enabled: nfdAppId > 0n,
+      // A slot never shows another validator's name while its own loads
+      placeholderData: undefined,
+    })),
+  })
+  const names = new Map<number, string>()
+  nfdQueries.forEach((query, i) => {
+    if (nfdAppIds[i] > 0n && query.data?.name) names.set(validatorIds[i], query.data.name)
+  })
+  return names
 }
 
 function ProgressLine({ progress }: { progress?: { pools: number; poolsDone: number } }) {
