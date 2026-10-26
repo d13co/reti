@@ -13,7 +13,14 @@ import {
 } from '@tanstack/react-table'
 import { useWallet } from '@txnlab/use-wallet-react'
 import { useViewedTime, useWriteAddress } from '@/hooks/useAtRound'
-import { Ban, FlaskConical, MessageCircleWarning, MoreHorizontal, Sunset } from 'lucide-react'
+import {
+  Ban,
+  FlaskConical,
+  History,
+  MessageCircleWarning,
+  MoreHorizontal,
+  Sunset,
+} from 'lucide-react'
 import * as React from 'react'
 import { AddStakeModal } from '@/components/AddStakeModal'
 import { AlgoDisplayAmount } from '@/components/AlgoDisplayAmount'
@@ -326,6 +333,14 @@ export function StakingTable({
           <h2 className="flex items-center mb-2 text-lg font-semibold lg:flex-1 lg:my-1">
             My Stakes {activeAddress && isLoading && <Loading size="sm" inline className="ml-3" />}
           </h2>
+          {activeAddress && (
+            <Button variant="outline" size="sm" className="mb-2 lg:mb-0" asChild>
+              <Link to="/history/$address" params={{ address: activeAddress }}>
+                <History className="mr-1.5 h-4 w-4" aria-hidden />
+                History
+              </Link>
+            </Button>
+          )}
         </div>
         {!activeAddress ? (
           <Alert className="max-w-md">

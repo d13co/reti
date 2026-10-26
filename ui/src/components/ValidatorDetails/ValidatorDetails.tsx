@@ -35,6 +35,7 @@ import { StakingPoolInfo, StakingPoolInfoSkeleton } from './StakingPoolInfo'
 import { StakersList } from './StakersList'
 import { SunsetNotice } from './SunsetNotice'
 import { ValidatorTimeline, ValidatorTimelineSkeleton } from './ValidatorTimeline'
+import { YourHistory } from './YourHistory'
 
 interface ValidatorDetailsProps {
   validator: Validator
@@ -234,7 +235,12 @@ export function ValidatorDetails({
           nfdPending={nfdPending}
         />
       }
-      staking={renderStakingDetails()}
+      staking={
+        <>
+          {renderStakingDetails()}
+          <YourHistory validator={validator} />
+        </>
+      }
       history={
         <TotalsHistory
           target={{ validator: validator.id }}

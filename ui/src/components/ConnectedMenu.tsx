@@ -1,5 +1,6 @@
 import { useWallet } from '@txnlab/use-wallet-react'
-import { Copy } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { Copy, History } from 'lucide-react'
 import { SelectAccount } from '@/components/SelectAccount'
 import { Button } from '@/components/ui/button'
 import {
@@ -59,6 +60,12 @@ export function ConnectedMenu({ activeAddress }: ConnectedMenuProps) {
             <WalletMetadata icon={activeWallet.metadata.icon} name={activeWallet.metadata.name} />
           </div>
           <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <Link to="/history/$address" params={{ address: activeAddress }}>
+              <History className="mr-2 h-4 w-4 opacity-60" aria-hidden />
+              Staking history
+            </Link>
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => activeWallet?.disconnect()}>
             Disconnect
             <DropdownMenuShortcut className="hidden lg:inline">⇧D</DropdownMenuShortcut>

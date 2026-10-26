@@ -17,7 +17,9 @@ export function PageHeader({ title, description, separator = false }: PageHeader
         >
           {title}
         </h1>
-        {description && <p className="mt-2 text-lg text-muted-foreground">{description}</p>}
+        {description && (
+          <p className="mt-2 text-lg text-muted-foreground break-words">{description}</p>
+        )}
         {separator && <Separator className="my-8" />}
       </div>
     </header>

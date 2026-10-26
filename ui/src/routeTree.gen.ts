@@ -16,6 +16,7 @@ import { Route as InstitutionalSupportImport } from './routes/institutional-supp
 import { Route as AddImport } from './routes/add'
 import { Route as IndexImport } from './routes/index'
 import { Route as ValidatorsValidatorIdImport } from './routes/validators_.$validatorId'
+import { Route as HistoryAddressImport } from './routes/history.$address'
 
 // Create/Update Routes
 
@@ -46,6 +47,12 @@ const IndexRoute = IndexImport.update({
 const ValidatorsValidatorIdRoute = ValidatorsValidatorIdImport.update({
   id: '/validators_/$validatorId',
   path: '/validators/$validatorId',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const HistoryAddressRoute = HistoryAddressImport.update({
+  id: '/history/$address',
+  path: '/history/$address',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -81,6 +88,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ValidatorsImport
       parentRoute: typeof rootRoute
     }
+    '/history/$address': {
+      id: '/history/$address'
+      path: '/history/$address'
+      fullPath: '/history/$address'
+      preLoaderRoute: typeof HistoryAddressImport
+      parentRoute: typeof rootRoute
+    }
     '/validators_/$validatorId': {
       id: '/validators_/$validatorId'
       path: '/validators/$validatorId'
@@ -98,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/add': typeof AddRoute
   '/institutional-support': typeof InstitutionalSupportRoute
   '/validators': typeof ValidatorsRoute
+  '/history/$address': typeof HistoryAddressRoute
   '/validators/$validatorId': typeof ValidatorsValidatorIdRoute
 }
 
@@ -106,6 +121,7 @@ export interface FileRoutesByTo {
   '/add': typeof AddRoute
   '/institutional-support': typeof InstitutionalSupportRoute
   '/validators': typeof ValidatorsRoute
+  '/history/$address': typeof HistoryAddressRoute
   '/validators/$validatorId': typeof ValidatorsValidatorIdRoute
 }
 
@@ -115,6 +131,7 @@ export interface FileRoutesById {
   '/add': typeof AddRoute
   '/institutional-support': typeof InstitutionalSupportRoute
   '/validators': typeof ValidatorsRoute
+  '/history/$address': typeof HistoryAddressRoute
   '/validators_/$validatorId': typeof ValidatorsValidatorIdRoute
 }
 
@@ -125,6 +142,7 @@ export interface FileRouteTypes {
     | '/add'
     | '/institutional-support'
     | '/validators'
+    | '/history/$address'
     | '/validators/$validatorId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -132,6 +150,7 @@ export interface FileRouteTypes {
     | '/add'
     | '/institutional-support'
     | '/validators'
+    | '/history/$address'
     | '/validators/$validatorId'
   id:
     | '__root__'
@@ -139,6 +158,7 @@ export interface FileRouteTypes {
     | '/add'
     | '/institutional-support'
     | '/validators'
+    | '/history/$address'
     | '/validators_/$validatorId'
   fileRoutesById: FileRoutesById
 }
@@ -148,6 +168,7 @@ export interface RootRouteChildren {
   AddRoute: typeof AddRoute
   InstitutionalSupportRoute: typeof InstitutionalSupportRoute
   ValidatorsRoute: typeof ValidatorsRoute
+  HistoryAddressRoute: typeof HistoryAddressRoute
   ValidatorsValidatorIdRoute: typeof ValidatorsValidatorIdRoute
 }
 
@@ -156,6 +177,7 @@ const rootRouteChildren: RootRouteChildren = {
   AddRoute: AddRoute,
   InstitutionalSupportRoute: InstitutionalSupportRoute,
   ValidatorsRoute: ValidatorsRoute,
+  HistoryAddressRoute: HistoryAddressRoute,
   ValidatorsValidatorIdRoute: ValidatorsValidatorIdRoute,
 }
 
@@ -175,6 +197,7 @@ export const routeTree = rootRoute
         "/add",
         "/institutional-support",
         "/validators",
+        "/history/$address",
         "/validators_/$validatorId"
       ]
     },
@@ -189,6 +212,9 @@ export const routeTree = rootRoute
     },
     "/validators": {
       "filePath": "validators.tsx"
+    },
+    "/history/$address": {
+      "filePath": "history.$address.tsx"
     },
     "/validators_/$validatorId": {
       "filePath": "validators_.$validatorId.tsx"

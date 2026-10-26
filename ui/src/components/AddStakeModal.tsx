@@ -331,6 +331,8 @@ export function AddStakeModal({
 
       // Invalidate other queries to update UI
       queryClient.invalidateQueries({ queryKey: ['stakes', { staker: activeAddress }] })
+      queryClient.invalidateQueries({ queryKey: ['staker-history', activeAddress] })
+      queryClient.invalidateQueries({ queryKey: ['staker-pools', activeAddress] })
       queryClient.invalidateQueries({ queryKey: ['staked-info'] })
       queryClient.invalidateQueries({ queryKey: ['validator-pools', String(validator.id)] })
       router.invalidate()

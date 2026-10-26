@@ -1,6 +1,13 @@
+import { QueryClient } from '@tanstack/react-query'
+import type { StakeEvent, StakerHistory, StakerHistoryOptions } from 'reti-ghost-sdk'
 import { describe, expect, it, vi } from 'vitest'
 import {
   mergeSeries,
+  stakerHistoryQueryKey,
+  stakerHistoryQueryOptions,
+  type StakerHistoryData,
+  stakerPoolsQueryKey,
+  stakerPoolsQueryOptions,
   rangeApplies,
   type SeriesExtent,
   seriesExtentQueryOptions,
@@ -11,6 +18,7 @@ import {
 } from '@/api/history'
 import { roundTimes } from '@/api/roundTimes'
 import { mockSdk, mockTimestampAt } from '@/utils/tests/sdk'
+import { PINNED_GC_TIME } from '@/utils/round'
 
 vi.mock('@/api/reti', async () => (await import('@/utils/tests/sdk')).mockRetiModule())
 
@@ -195,5 +203,150 @@ describe('mergeSeries', () => {
   it('handles an empty side', () => {
     expect(mergeSeries([], [point(3)])).toEqual([point(3)])
     expect(mergeSeries([point(3)], [])).toEqual([point(3)])
+  })
+})
+
+const STAKER = 'STAKERSTAKERSTAKERSTAKERSTAKERSTAKERSTAKERSTAKERSTAKERST'
+
+const POOL = {
+  validatorId: 7n,
+  poolId: 1n,
+  poolAppId: 1010n,
+  joinRound: 100n,
+  joinTimestamp: 1_700_000_000,
+}
+
+const JOIN: StakeEvent = {
+  round: 100n,
+  timestamp: 1_700_000_000,
+  validatorId: 7n,
+  poolId: 1n,
+  poolAppId: 1010n,
+  kind: 'deposit',
+  amount: 5_000_000n,
+  balanceAfter: 5_000_000n,
+  joined: true,
+}
+
+const TOP_UP: StakeEvent = {
+  ...JOIN,
+  round: 200n,
+  timestamp: 1_700_000_280,
+  amount: 1_000_000n,
+  balanceAfter: 6_000_000n,
+  joined: undefined,
+}
+
+const HISTORY: StakerHistory = { events: [TOP_UP, JOIN], pools: [POOL], round: 300n }
+
+describe('stakerHistoryQueryOptions', () => {
+  it('keys on the address, the validator and the round, the round last', () => {
+    const queryClient = new QueryClient()
+    expect(stakerHistoryQueryOptions(queryClient, STAKER).queryKey).toEqual([
+      'staker-history',
+      STAKER,
+      'all',
+      'latest',
+    ])
+    expect(stakerHistoryQueryOptions(queryClient, STAKER, 123n, 7).queryKey).toEqual([
+      'staker-history',
+      STAKER,
+      '7',
+      'round:123',
+    ])
+    expect(stakerPoolsQueryOptions(STAKER, 123n).queryKey).toEqual([
+      'staker-pools',
+      STAKER,
+      'round:123',
+    ])
+  })
+
+  it('never refetches a pinned history, and drops it like other pinned reads', () => {
+    const queryClient = new QueryClient()
+    const pinned = stakerHistoryQueryOptions(queryClient, STAKER, 123n)
+    expect(pinned.staleTime).toBe(Infinity)
+    expect(pinned.gcTime).toBe(PINNED_GC_TIME)
+    expect(pinned.refetchOnWindowFocus).toBe(false)
+    const live = stakerHistoryQueryOptions(queryClient, STAKER)
+    expect(live.staleTime).toBe(1000 * 60 * 5)
+    expect(live.gcTime).toBeUndefined()
+  })
+
+  it('is disabled without an address', () => {
+    expect(stakerHistoryQueryOptions(new QueryClient(), '').enabled).toBe(false)
+  })
+
+  it('reads up to the pinned round with the query signal, and live without one', async () => {
+    const queryClient = new QueryClient()
+    mockSdk.getStakerHistory.mockClear()
+
+    await queryClient.fetchQuery(stakerHistoryQueryOptions(queryClient, STAKER, 123n, 7))
+    expect(mockSdk.getStakerHistory).toHaveBeenLastCalledWith(STAKER, {
+      maxRound: 123n,
+      validatorId: 7,
+      signal: expect.any(AbortSignal),
+      onProgress: expect.any(Function),
+    })
+
+    await queryClient.fetchQuery(stakerHistoryQueryOptions(queryClient, STAKER))
+    expect(mockSdk.getStakerHistory.mock.lastCall?.[1]?.signal).toBeUndefined()
+    expect(mockSdk.getStakerHistory.mock.lastCall?.[1]?.maxRound).toBeUndefined()
+  })
+
+  it('fills the cache in as the history loads, then marks it complete', async () => {
+    const queryClient = new QueryClient()
+    const options = stakerHistoryQueryOptions(queryClient, STAKER)
+    const seen: (StakerHistoryData | undefined)[] = []
+    mockSdk.getStakerHistory.mockImplementationOnce(
+      async (_staker: string, opts?: StakerHistoryOptions) => {
+        const progress = { pools: 1, poolsListed: 1, poolsDone: 0, waves: 1, reads: 2 }
+        opts?.onProgress?.({ ...progress, partial: { ...HISTORY, events: [JOIN] } })
+        seen.push(queryClient.getQueryData<StakerHistoryData>(options.queryKey))
+        return HISTORY
+      },
+    )
+
+    const history = await queryClient.fetchQuery(options)
+
+    expect(seen[0]).toMatchObject({
+      events: [JOIN],
+      pools: [POOL],
+      complete: false,
+      progress: { pools: 1, poolsDone: 0, waves: 1 },
+    })
+    expect(history).toEqual({ ...HISTORY, complete: true })
+    // The full history's pools stand in for the pools read
+    expect(queryClient.getQueryData(stakerPoolsQueryKey(STAKER))).toEqual([POOL])
+    // Its rounds' times are kept
+    expect(roundTimes.get(200n)).toBe(1_700_000_280)
+  })
+
+  it('keeps a complete history on screen while it refetches', async () => {
+    const queryClient = new QueryClient()
+    const key = stakerHistoryQueryKey(STAKER)
+    const complete: StakerHistoryData = { ...HISTORY, complete: true }
+    queryClient.setQueryData(key, complete)
+    let seen: StakerHistoryData | undefined
+    mockSdk.getStakerHistory.mockImplementationOnce(
+      async (_staker: string, opts?: StakerHistoryOptions) => {
+        const progress = { pools: 1, poolsListed: 1, poolsDone: 0, waves: 1, reads: 2 }
+        opts?.onProgress?.({ ...progress, partial: { ...HISTORY, events: [] } })
+        seen = queryClient.getQueryData<StakerHistoryData>(key)
+        return HISTORY
+      },
+    )
+
+    await queryClient.fetchQuery({
+      ...stakerHistoryQueryOptions(queryClient, STAKER),
+      staleTime: 0,
+    })
+
+    expect(seen).toBe(complete)
+  })
+
+  it("doesn't seed the pools from one validator's history", async () => {
+    const queryClient = new QueryClient()
+    await queryClient.fetchQuery(stakerHistoryQueryOptions(queryClient, STAKER, undefined, 7))
+    expect(queryClient.getQueryData(stakerPoolsQueryKey(STAKER))).toBeUndefined()
   })
 })

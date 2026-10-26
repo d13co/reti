@@ -1,6 +1,9 @@
-import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
+import { infiniteQueryOptions, QueryClient, queryOptions } from '@tanstack/react-query'
 import {
   seriesRounds,
+  type StakerHistory,
+  type StakerHistoryProgress,
+  type StakerPoolMembership,
   type TimelineOptions,
   type TimelinePage,
   type TimelineTarget,
@@ -10,6 +13,7 @@ import { roundAtTime, roundTimes, timestampOf } from '@/api/roundTimes'
 import { Trace, traceQuery } from '@/api/trace'
 import { untilAborted } from '@/utils/abort'
 import { dayjs } from '@/utils/dayjs'
+import { pinnedSignal, roundKey, roundQueryDefaults } from '@/utils/round'
 
 /**
  * History reads: the rounds at which something changed, and the chain's latest round. These need
@@ -460,3 +464,129 @@ export const latestRoundQueryOptions = queryOptions({
   },
   staleTime: 1000 * 10,
 })
+
+////////////////////////////////////////////////////////////
+// Staker history
+////////////////////////////////////////////////////////////
+
+export type { StakeEvent, StakerPoolMembership } from 'reti-ghost-sdk'
+
+/** How far a staker history that is still loading has got. */
+export type StakerHistoryLoad = Omit<StakerHistoryProgress, 'partial'>
+
+/**
+ * A staker's deposits and withdrawals. It fills in as it loads: the pools come first, then the
+ * events, wave by wave; `complete` says whether every pool has been searched.
+ */
+export interface StakerHistoryData extends StakerHistory {
+  complete: boolean
+  /** Set while the history is still loading */
+  progress?: StakerHistoryLoad
+}
+
+/** How long a live staker history is fresh: it's a heavy read, and a stake or unstake refreshes it. */
+const STAKER_HISTORY_STALE_TIME = 1000 * 60 * 5 // 5 minutes
+
+/** The rounds ↔ times a history carries, kept for the page's date lookups. */
+function rememberTimes(history: StakerHistory) {
+  roundTimes.addAll(history.events)
+  for (const pool of history.pools) {
+    roundTimes.add(pool.joinRound, pool.joinTimestamp)
+    if (pool.leaveRound !== undefined && pool.leaveTimestamp !== undefined) {
+      roundTimes.add(pool.leaveRound, pool.leaveTimestamp)
+    }
+  }
+}
+
+export const stakerPoolsQueryKey = (address: string, round?: bigint) =>
+  ['staker-pools', address, roundKey(round)] as const
+
+/**
+ * Every pool `address` was ever in, and when, up to `round`: one request. Enough to list the
+ * validators used before the events arrive; a full history seeds it too. Needs a dtalgorand node.
+ */
+export const stakerPoolsQueryOptions = (address: string, round?: bigint) =>
+  queryOptions<StakerPoolMembership[]>({
+    queryKey: stakerPoolsQueryKey(address, round),
+    queryFn: async (context) => {
+      const signal = pinnedSignal(round, context)
+      const trace = traceQuery(`staker-pools ${address}`, signal)
+      const pools = await trace.step(
+        'staker-pools',
+        { round },
+        () => retiSdk.getStakerPools(address, { maxRound: round, signal }),
+        (pools) => `${pools.length} pools`,
+      )
+      trace.done()
+      return pools
+    },
+    enabled: !!address,
+    ...roundQueryDefaults(round, { staleTime: STAKER_HISTORY_STALE_TIME }),
+  })
+
+export const stakerHistoryQueryKey = (address: string, round?: bigint, validatorId?: number) =>
+  ['staker-history', address, validatorId?.toString() ?? 'all', roundKey(round)] as const
+
+/**
+ * The deposits and withdrawals of `address` up to `round` (the latest when undefined), across
+ * every validator or only `validatorId`'s. The SDK rebuilds them from on-chain state in waves of
+ * reads; each wave's partial history is written to the cache as it lands, so the page fills in
+ * instead of waiting for the end. A refetch over a complete history keeps it on screen until the
+ * new one is complete. Needs a node with time travel: callers gate it on
+ * `timeTravelSupportQueryOptions` (see `useStakerHistory`).
+ */
+export const stakerHistoryQueryOptions = (
+  queryClient: QueryClient,
+  address: string,
+  round?: bigint,
+  validatorId?: number,
+) => {
+  const queryKey = stakerHistoryQueryKey(address, round, validatorId)
+  return queryOptions<StakerHistoryData>({
+    queryKey,
+    queryFn: async (context) => {
+      const signal = pinnedSignal(round, context)
+      const trace = traceQuery(
+        `staker-history ${address}${validatorId !== undefined ? ` validator=${validatorId}` : ''}`,
+        signal,
+      )
+      const showPartial = ({ partial, ...progress }: StakerHistoryProgress) => {
+        const state = queryClient.getQueryState<StakerHistoryData>(queryKey)
+        // Only while this read is running, and never over a complete history
+        if (signal?.aborted || state?.fetchStatus !== 'fetching' || state.data?.complete) return
+        rememberTimes(partial)
+        queryClient.setQueryData<StakerHistoryData>(queryKey, {
+          ...partial,
+          complete: false,
+          progress,
+        })
+      }
+      const history = await trace.step(
+        'staker-history',
+        { round, validator: validatorId },
+        () =>
+          retiSdk.getStakerHistory(address, {
+            maxRound: round,
+            validatorId,
+            signal,
+            onProgress: showPartial,
+          }),
+        (history) => `${history.pools.length} pools, ${history.events.length} events`,
+      )
+      signal?.throwIfAborted()
+      rememberTimes(history)
+      // Every pool, so the pools list needs no read of its own
+      if (validatorId === undefined) {
+        queryClient.setQueryData(stakerPoolsQueryKey(address, round), history.pools)
+      }
+      trace.done()
+      return { ...history, complete: true }
+    },
+    enabled: !!address,
+    retry: 1,
+    ...roundQueryDefaults(round, {
+      staleTime: STAKER_HISTORY_STALE_TIME,
+      refetchOnWindowFocus: false,
+    }),
+  })
+}

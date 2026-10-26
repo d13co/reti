@@ -1,5 +1,13 @@
 import algosdk from 'algosdk'
-import type { RegistryTotals, RetiGhostSDK, SeriesPoint, ValidatorTotals } from 'reti-ghost-sdk'
+import type {
+  RegistryTotals,
+  RetiGhostSDK,
+  SeriesPoint,
+  StakerHistory,
+  StakerHistoryOptions,
+  StakerPoolMembership,
+  ValidatorTotals,
+} from 'reti-ghost-sdk'
 import { AVG_BLOCK_TIME_MS, CURRENT_TIME_MS, LAST_ROUND } from '@/utils/tests/constants'
 import { MOCK_STAKED_INFO_1, MOCK_STAKED_INFO_2 } from '@/utils/tests/fixtures/boxes'
 import {
@@ -195,6 +203,18 @@ function createMockSdk() {
     ),
     /** No changes on record */
     getChangeRounds: vi.fn(async () => ({ changes: [] })),
+    /** Never staked */
+    getStakerPools: vi.fn(
+      async (_staker: string, _options?: { maxRound?: number | bigint }) =>
+        [] as StakerPoolMembership[],
+    ),
+    getStakerHistory: vi.fn(
+      async (_staker: string, _options?: StakerHistoryOptions): Promise<StakerHistory> => ({
+        events: [],
+        pools: [],
+        round: BigInt(LAST_ROUND),
+      }),
+    ),
     supportsTimeTravel: vi.fn(async () => true),
     getRegistryCreationRound: vi.fn(async () => 1n),
     getNode: vi.fn(async () => ({
