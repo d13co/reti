@@ -3,18 +3,18 @@ import { isoTime, Trace } from '@/api/trace'
 
 /**
  * Date → round, fast. Every round ↔ timestamp pair the page sees (change history, block headers,
- * simulates) goes into one in-page cache. A search estimates the round from the cache, narrows it
- * with a simulate that reads timestamps at a list of rounds, then finds the exact round with one
- * last simulate that scans forward from a round just before the target.
+ * reader reads) goes into one in-page cache. A search estimates the round from the cache, narrows
+ * it with a read of the timestamps at a list of rounds, then finds the exact round with one last
+ * read that scans forward from a round just before the target.
  */
 
 /** Which end of the chain a pending read is known to land on, whatever the target. */
 export type SeedSide = 'earliest' | 'latest'
 
 /**
- * The rounds whose timestamps one sample pass reads, in one simulate. The node takes up to 256,
- * but each round adds about 1 ms past 64: two passes of 16 (75-95 ms each) beat one of 256
- * (180-330 ms).
+ * The rounds whose timestamps one sample pass reads, in one request. A node that simulates takes
+ * up to 256 (one with queries, 16), but each round adds about 1 ms past 64: two passes of 16
+ * (75-95 ms each) beat one of 256 (180-330 ms).
  */
 export const SAMPLE_ROUNDS = 16
 
@@ -145,11 +145,11 @@ export const roundTimes = new RoundTimes()
 
 /** The reads a search makes. Each is one request, cancelled by `signal`. */
 export interface TimeReader {
-  /** Each round's block timestamp, in one simulate. Rounds must be before the latest. */
+  /** Each round's block timestamp, in one batched read. Rounds must be before the latest. */
   timestampsAt(rounds: bigint[], signal?: AbortSignal): Promise<RoundTime[]>
   /**
    * The first round from `start` with a timestamp at or after `target`, scanning at most
-   * `BLOCK_LOOKBACK` rounds, in one simulate; undefined if none in that window reaches it.
+   * `BLOCK_LOOKBACK` rounds, in one read; undefined if none in that window reaches it.
    * `knownRound`, a round known to exist at or after the answer, saves reading the latest round.
    */
   firstRoundAtOrAfter(

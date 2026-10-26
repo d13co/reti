@@ -329,7 +329,10 @@ export type SeriesPart = 'coarse' | 'fill'
 /** Rounds in the coarse pass. */
 const COARSE_POINTS = 16
 
-/** Rounds in a full chart: 15 coarse intervals of 8 points each, within the SDK's 64-128. */
+/**
+ * Rounds in a full chart: 15 coarse intervals of 8 points each, within the 64-128 the SDK suggests
+ * for a node that simulates (a node with queries would take more).
+ */
 const SERIES_POINTS = (COARSE_POINTS - 1) * 8 + 1
 
 /** The rounds a pass reads, ascending. */
@@ -344,7 +347,7 @@ export function seriesPartRounds({ start, end }: SeriesWindow, part: SeriesPart)
 
 /**
  * Stake and stakers at one pass's rounds over `window`, each with its block time, in one
- * simulate. Rounds that fail to read are left out. A window in the past never changes, and nor
+ * batched read. Rounds that fail to read are left out. A window in the past never changes, and nor
  * does a live one, as its end is a past round.
  */
 export const totalsSeriesPartQueryOptions = (
@@ -372,7 +375,7 @@ export const totalsSeriesPartQueryOptions = (
     staleTime: Infinity,
   })
 
-/** The totals at `rounds`, in one simulate; rounds that fail to read are left out. */
+/** The totals at `rounds`, in one batched read; rounds that fail to read are left out. */
 async function readTotals(
   trace: Trace,
   target: TotalsTarget,

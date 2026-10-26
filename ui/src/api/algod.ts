@@ -212,7 +212,7 @@ export async function fetchAppBoxes(
 
 /**
  * Fetches the timestamps of the `numRounds` blocks before `round` (the latest when undefined),
- * oldest first, in one simulate through the read node.
+ * oldest first, in one batched read through the read node.
  * @param {bigint} round - The round to look back from
  * @param {number} numRounds - The number of rounds to fetch
  * @return {number[]} - An array of timestamps for each block

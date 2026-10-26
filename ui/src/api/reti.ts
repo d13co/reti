@@ -22,16 +22,11 @@ export const readAlgorand = AlgorandClient.fromConfig({
 /** The only `RetiGhostSDK`. Read through {@link sdkAt} so a pinned round is never forgotten. */
 export const retiSdk = new RetiGhostSDK({ algorand: readAlgorand, registryAppId: RETI_APP_ID })
 
-// Warm up what the first read of every page waits on (the node probe, and the registry's creation
-// round that pinned reads check against), so it doesn't happen inside that read, one after the
-// other. All three are cached by the SDK; a failure here is retried by the read that needs it.
-for (const warmUp of [
-  () => retiSdk.getNode(),
-  () => retiSdk.supportsTimeTravel(),
-  () => retiSdk.getRegistryCreationRound(),
-]) {
-  warmUp().catch(() => {})
-}
+// Fetch what the first read of every page waits on, so it doesn't happen inside that read: the
+// node's limits (queries, extended simulate or plain simulate), suggested params on a node without
+// queries, and the registry's creation round that pinned reads check against. The SDK caches all of
+// it; a failure here is retried by the read that needs it.
+retiSdk.prefetch().catch(() => {})
 
 /** How long a read of the read node's latest round is reused. */
 const LATEST_ROUND_MAX_AGE = 1000 * 3 // 3 seconds
@@ -140,7 +135,7 @@ export function registryCreation(): Promise<RoundTime | undefined> {
   return creation
 }
 
-/** The reads a date → round search makes: each one simulate of the SDK's reader. */
+/** The reads a date → round search makes: each one batched read of the SDK's reader. */
 export const timeReader: TimeReader = {
   async timestampsAt(rounds, signal) {
     const points = await retiSdk.getTimestampsAtRounds(rounds, { signal })

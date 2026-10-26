@@ -53,7 +53,7 @@ export async function fetchNumValidators(round?: bigint): Promise<number> {
  * Fetches config, state, pools and node/pool assignments for EVERY validator, as of `round` (the
  * latest state when undefined).
  *
- * One registry global state read for the count, then one batched simulate of the ghost reader for
+ * One registry global state read for the count, then one batched read of the ghost reader for
  * every validator (~300ms for all of MainNet), consistent at a single round.
  */
 export async function fetchAllValidatorData(
@@ -152,7 +152,7 @@ export function ewmaToApy(ewma: bigint): number {
 }
 
 /**
- * Every listed pool's global state and balance, as of `round`, in one batched simulate.
+ * Every listed pool's global state and balance, as of `round`, in one batched read.
  */
 export async function fetchPoolGlobalStates(
   poolAppIds: bigint[],
@@ -661,7 +661,7 @@ export async function callFindPoolForStaker(
 }
 
 /**
- * A staker's positions, grouped by validator, as of `round`: one batched simulate for every pool
+ * A staker's positions, grouped by validator, as of `round`: one batched read for every pool
  * the staker is in, plus one for those pools' `lastPayout`.
  */
 export async function fetchStakerValidatorData(

@@ -197,7 +197,25 @@ function createMockSdk() {
     getChangeRounds: vi.fn(async () => ({ changes: [] })),
     supportsTimeTravel: vi.fn(async () => true),
     getRegistryCreationRound: vi.fn(async () => 1n),
-    getNode: vi.fn(async () => ({ kind: 'dt' })),
+    getNode: vi.fn(async () => ({
+      kind: 'dt' as const,
+      limits: {
+        maxTxnGroups: 16,
+        maxRounds: 256,
+        maxExtraOpcodeBudget: 640_000,
+        resourceLimitMultiplier: 128,
+        timeTravel: true,
+        developerApi: true,
+      },
+      query: {
+        maxCalls: 1024,
+        maxRounds: 16,
+        maxCallBudget: 320_000,
+        maxCallLogBytes: 65_536,
+        maxResponseBytes: 67_108_864,
+      },
+    })),
+    prefetch: vi.fn(async () => {}),
     atRound: vi.fn(() => sdk),
   }
   return sdk

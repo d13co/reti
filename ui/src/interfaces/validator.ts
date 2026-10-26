@@ -27,7 +27,7 @@ export interface LocalPoolInfo {
 
 /**
  * The four pieces of validator state that all live in the single `v` + validatorId box,
- * read for every validator in one batched simulate (see `fetchAllValidatorData`).
+ * read for every validator in one batched read (see `fetchAllValidatorData`).
  */
 export interface ValidatorCoreData {
   id: number
@@ -82,7 +82,7 @@ export type PoolData = {
 
 /**
  * The parts of a staking pool's on-chain state the UI reads, all read for every pool in one
- * batched simulate (see `fetchPoolGlobalStates`).
+ * batched read (see `fetchPoolGlobalStates`).
  */
 export type PoolGlobalState = {
   lastPayout?: bigint
