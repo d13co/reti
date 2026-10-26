@@ -8,8 +8,6 @@ import {
 import { StakedInfo } from '@/contracts/StakingPoolClient'
 import { useAtRound } from '@/hooks/useAtRound'
 import { LocalPoolInfo } from '@/interfaces/validator'
-import { ExplorerLink } from '@/utils/explorer'
-import { getNfdProfileUrl } from '@/utils/nfd'
 import { keepAcrossRounds } from '@/utils/round'
 
 interface UseChartDataProps {
@@ -142,10 +140,14 @@ export function useStakersChartData({
       return {
         name: nfdName || staker.account,
         value: Number(staker.balance),
-        href: nfdName ? getNfdProfileUrl(nfdName) : ExplorerLink.account(staker.account),
+        address: staker.account,
+        // The real URL, so a new tab (middle or ctrl click) opens it at the same round; a plain
+        // click is routed in the app by `StakersList`
+        href: `/history/${staker.account}${round === undefined ? '' : `?round=${round}`}`,
+        target: '_self',
       }
     })
-  }, [allStakedInfo, selectedPool, nfdQueries, stakerAddresses])
+  }, [allStakedInfo, selectedPool, nfdQueries, stakerAddresses, round])
 
   return {
     stakersChartData,

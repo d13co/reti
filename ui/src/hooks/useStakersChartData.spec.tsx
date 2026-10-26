@@ -33,13 +33,34 @@ describe('useStakersChartData', () => {
       {
         name: MOCK_STAKED_INFO_1.account,
         value: Number(MOCK_STAKED_INFO_1.balance),
-        href: `https://app.dappflow.org/setnetwork?name=sandbox&redirect=explorer/account/${MOCK_STAKED_INFO_1.account}`,
+        address: MOCK_STAKED_INFO_1.account,
+        href: `/history/${MOCK_STAKED_INFO_1.account}`,
+        target: '_self',
       },
       {
         name: MOCK_STAKED_INFO_2.account,
         value: Number(MOCK_STAKED_INFO_2.balance),
-        href: `https://app.dappflow.org/setnetwork?name=sandbox&redirect=explorer/account/${MOCK_STAKED_INFO_2.account}`,
+        address: MOCK_STAKED_INFO_2.account,
+        href: `/history/${MOCK_STAKED_INFO_2.account}`,
+        target: '_self',
       },
     ])
+  })
+})
+
+describe('useStakersChartData at a pinned round', () => {
+  it('links to the history at that round', async () => {
+    vi.resetModules()
+    vi.doMock('@/hooks/useAtRound', async () =>
+      (await import('@/utils/tests/sdk')).mockAtRoundModule(123n),
+    )
+    const { useStakersChartData: atRound } = await import('@/hooks/useStakersChartData')
+    const { result } = renderHook(() => atRound({ selectedPool: 'all', validatorId: 1 }), {
+      wrapper: createWrapper(),
+    })
+    await waitFor(() => expect(result.current.stakersChartData).toHaveLength(2))
+    expect(result.current.stakersChartData[0].href).toBe(
+      `/history/${MOCK_STAKED_INFO_1.account}?round=123`,
+    )
   })
 })

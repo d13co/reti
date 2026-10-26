@@ -18,5 +18,8 @@ export interface StakerValidatorData {
 export interface StakerChartData {
   name: string
   value: number
+  address: string
+  /** The staker's history page, at the round on screen */
   href: string
+  target: string
 }
