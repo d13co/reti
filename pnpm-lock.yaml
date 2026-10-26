@@ -257,8 +257,8 @@ importers:
         specifier: 7.53.0
         version: 7.53.0(react@18.3.1)
       reti-ghost-sdk:
-        specifier: file:vendor/reti-ghost-sdk-0.3.0-dt.6.tgz
-        version: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.6.tgz(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.2.0.1.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.2.0.1.0.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.2.0.1.0.tgz)
+        specifier: file:vendor/reti-ghost-sdk-0.3.0-dt.7.tgz
+        version: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.7.tgz(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.2.0.1.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.2.0.1.0.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.2.0.1.0.tgz)
       sonner:
         specifier: 1.5.0
         version: 1.5.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -4692,9 +4692,9 @@ packages:
     resolution: {integrity: sha512-oKWePCxqpd6FlLvGV1VU0x7bkPmmCNolxzjMf4NczoDnQcIWrAF+cPtZn5i6n+RfD2d9i0tzpKnG6Yk168yIyw==}
     hasBin: true
 
-  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.6.tgz:
-    resolution: {integrity: sha512-41gAU8wAXEXjbnyuxmrp79ZmEHjqaPusNhRwD+c5LAHbosjGIJyrSarrlLczAnFQckiosVmZoToJe/Bz7cVG5Q==, tarball: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.6.tgz}
-    version: 0.3.0-dt.6
+  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.7.tgz:
+    resolution: {integrity: sha512-aaGfVFP2BXApNRPZFEV5kILbueNsNnNIPyza4Dy3PSbG9+Q2XJBG+wjLh7CDRCzYqtV6R0pbFL/F2NlkoYhvZw==, tarball: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.7.tgz}
+    version: 0.3.0-dt.7
     peerDependencies:
       '@algorandfoundation/algokit-utils': '>=9.2.0'
       algosdk: '>=3.5.2'
@@ -10250,7 +10250,7 @@ snapshots:
       path-parse: 1.0.7
       supports-preserve-symlinks-flag: 1.0.0
 
-  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.6.tgz(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.2.0.1.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.2.0.1.0.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.2.0.1.0.tgz):
+  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.7.tgz(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.2.0.1.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.2.0.1.0.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.2.0.1.0.tgz):
     dependencies:
       '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.2.0.1.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.2.0.1.0.tgz)'
       algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.2.0.1.0.tgz
