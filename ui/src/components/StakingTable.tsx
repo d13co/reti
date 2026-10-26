@@ -329,12 +329,12 @@ export function StakingTable({
   return (
     <>
       <div>
-        <div className="lg:flex items-center gap-x-2 py-3">
-          <h2 className="flex items-center mb-2 text-lg font-semibold lg:flex-1 lg:my-1">
+        <div className="flex items-center gap-x-2 py-3">
+          <h2 className="flex flex-1 items-center my-1 text-lg font-semibold">
             My Stakes {activeAddress && isLoading && <Loading size="sm" inline className="ml-3" />}
           </h2>
           {activeAddress && (
-            <Button variant="outline" size="sm" className="mb-2 lg:mb-0" asChild>
+            <Button variant="outline" size="sm" asChild>
               <Link to="/history/$address" params={{ address: activeAddress }}>
                 <History className="mr-1.5 h-4 w-4" aria-hidden />
                 History
