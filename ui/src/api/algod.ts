@@ -36,6 +36,23 @@ export async function fetchAsset(assetId: bigint | number): Promise<algosdk.mode
   }
 }
 
+/**
+ * An account's balance as of the end of `round`, through the read node: the balance shown while
+ * time travelling. Live balances, which writes depend on, come from {@link fetchBalance}.
+ */
+export async function fetchBalanceAt(
+  address: string,
+  round: bigint,
+  signal?: AbortSignal,
+): Promise<AccountBalance> {
+  const [{ balance, minBalance }] = await sdkAt(round).getAccountBalances([address], { signal })
+  return {
+    amount: AlgoAmount.MicroAlgos(balance),
+    available: AlgoAmount.MicroAlgos(BigMath.max(0n, balance - minBalance)),
+    minimum: AlgoAmount.MicroAlgos(minBalance),
+  }
+}
+
 export async function fetchBalance(address: string | null): Promise<AccountBalance> {
   if (!address) {
     throw new Error('No address provided')

@@ -3,7 +3,7 @@ import { keepPreviousData, QueryClient, queryOptions } from '@tanstack/react-que
 import algosdk from 'algosdk'
 import { AxiosError } from 'axios'
 import { CacheRequestConfig } from 'axios-cache-interceptor'
-import { fetchBalance, fetchBlockTimes } from '@/api/algod'
+import { fetchBalance, fetchBalanceAt, fetchBlockTimes } from '@/api/algod'
 import {
   fetchAllValidatorData,
   fetchAssetAt,
@@ -578,6 +578,18 @@ export const balanceQueryOptions = (address: string | null) =>
     queryFn: () => fetchBalance(address),
     enabled: !!address,
     refetchInterval: 1000 * 30, // Every 30 seconds
+  })
+
+/**
+ * An account's balance as of the end of a past round, for the account menu while time
+ * travelling. A past balance never changes; writes always use the live {@link balanceQueryOptions}.
+ */
+export const historicalBalanceQueryOptions = (address: string, round: bigint) =>
+  queryOptions({
+    queryKey: ['historical-balance', address, roundKey(round)],
+    queryFn: (context) => fetchBalanceAt(address, round, pinnedSignal(round, context)),
+    enabled: !!address,
+    ...roundQueryDefaults(round, {}),
   })
 
 ////////////////////////////////////////////////////////////
