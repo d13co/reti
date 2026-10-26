@@ -164,6 +164,8 @@ export interface TimeTravelSupport {
   creationRound?: bigint
   /** That round's block timestamp, in seconds. */
   creationTimestamp?: number
+  /** Whether reads go through the node's read-only queries (`POST /v2/query`) rather than simulate. */
+  queries?: boolean
 }
 
 /** Whether the history features can be offered at all. Asked once per session. */
@@ -178,9 +180,20 @@ export const timeTravelSupportQueryOptions = queryOptions({
       trace.done('unsupported')
       return { supported }
     }
+    // Cached by the SDK since `supportsTimeTravel`: no request
+    const queries = await retiSdk.getNode().then(
+      (node) => node.kind === 'dt' && node.query !== undefined,
+      () => false,
+    )
     const first = await registryCreation()
-    trace.done(first ? `creation=${first.round}` : 'no creation round')
-    return { supported, creationRound: first?.round, creationTimestamp: first?.timestamp }
+    const summary = first ? `creation=${first.round}` : 'no creation round'
+    trace.done(queries ? `${summary} queries` : summary)
+    return {
+      supported,
+      creationRound: first?.round,
+      creationTimestamp: first?.timestamp,
+      queries,
+    }
   },
   staleTime: Infinity,
   gcTime: Infinity,
