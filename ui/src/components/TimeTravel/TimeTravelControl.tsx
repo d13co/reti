@@ -10,7 +10,7 @@ import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Warp, type WarpHandle } from '@/components/TimeTravel/Warp'
-import { useAtRound } from '@/hooks/useAtRound'
+import { usePendingRound } from '@/hooks/useAtRound'
 import { useSetRound } from '@/hooks/useSetRound'
 import { dayjs } from '@/utils/dayjs'
 import { parseRound } from '@/utils/round'
@@ -27,7 +27,7 @@ interface TimeTravelControlProps {
 export function TimeTravelControl({ className }: TimeTravelControlProps) {
   const queryClient = useQueryClient()
   const supportQuery = useQuery(timeTravelSupportQueryOptions)
-  const { round, pinned } = useAtRound()
+  const { round, pinned } = usePendingRound()
   const roundTimeQuery = useQuery(roundTimestampQueryOptions(round))
   const setRound = useSetRound()
 

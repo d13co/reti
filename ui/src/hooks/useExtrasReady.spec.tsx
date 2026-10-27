@@ -98,6 +98,18 @@ describe('useExtrasReady', () => {
     expect(result.current).toBe(true)
   })
 
+  it('scans the cache once per flood of cache events, not once per event', async () => {
+    const { queryClient } = renderGate([{ root: 'all-validators' }])
+    const findAll = vi.spyOn(queryClient.getQueryCache(), 'findAll')
+
+    // A round's data seeded: hundreds of queries added and updated in one go
+    await act(async () => {
+      for (let i = 0; i < 500; i++) queryClient.setQueryData(['validator-state', String(i)], i)
+    })
+    await advance(10)
+    expect(findAll).toHaveBeenCalledTimes(1)
+  })
+
   it('stops re-rendering for fetches once ready', async () => {
     const queryClient = new QueryClient()
     const wrapper = ({ children }: { children: React.ReactNode }) => (

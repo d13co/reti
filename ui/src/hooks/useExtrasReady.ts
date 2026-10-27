@@ -63,12 +63,24 @@ function watch(queryClient: QueryClient) {
       quietTimer = setTimeout(start, QUIET_MS)
     }
   }
-  const unsubscribe = cache.subscribe(check)
+  // Cache events come in floods (a round's data seeded, a page of reads mounting: thousands at
+  // once), and each check scans the whole cache. So one check once a flood has passed, and only
+  // for the events that change what is fetching: a query's own updates and its removal.
+  let checkTimer: ReturnType<typeof setTimeout> | undefined
+  const unsubscribe = cache.subscribe((event) => {
+    if (event.type !== 'updated' && event.type !== 'removed') return
+    if (checkTimer !== undefined) return
+    checkTimer = setTimeout(() => {
+      checkTimer = undefined
+      check()
+    }, 0)
+  })
   // The ceiling: counted from when the first component asked, whatever is fetching
   const maxTimer = setTimeout(start, MAX_WAIT_MS)
 
   stopWatching = () => {
     unsubscribe()
+    clearTimeout(checkTimer)
     clearTimeout(quietTimer)
     clearTimeout(maxTimer)
     stopWatching = undefined

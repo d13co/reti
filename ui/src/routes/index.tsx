@@ -16,7 +16,7 @@ import { PageMain } from '@/components/PageMain'
 import { StakingTable } from '@/components/StakingTable'
 import { TotalsHistory } from '@/components/TimeTravel/TotalsHistory'
 import { ValidatorTable } from '@/components/ValidatorTable'
-import { useAtRound } from '@/hooks/useAtRound'
+import { AtRoundProvider, useAtRound } from '@/hooks/useAtRound'
 import { useValidators } from '@/hooks/useValidators'
 import { StakerValidatorData } from '@/interfaces/staking'
 import { ValidatorModalsProvider } from '@/providers/ValidatorModalsProvider'
@@ -28,7 +28,7 @@ const REGISTRY = { registry: true } as const
 const NO_STAKES: StakerValidatorData[] = []
 
 export const Route = createFileRoute('/')({
-  beforeLoad: ({ context: { queryClient, walletManager }, search }) => {
+  beforeLoad: ({ context: { queryClient, walletManager }, search, cause }) => {
     const round = parseRound(search.round)
 
     // The connected account's own stakes go first, alongside the validator set the table names
@@ -55,8 +55,11 @@ export const Route = createFileRoute('/')({
     const prefetch = queryClient.prefetchQuery(options)
 
     // Only a cold cache is worth blocking the route on. When the persisted cache was restored
-    // the table paints from it immediately and this refresh lands underneath it.
-    return queryClient.getQueryData(options.queryKey) ? undefined : prefetch
+    // the table paints from it immediately and this refresh lands underneath it. Already on the
+    // page (`stay`: moving to another round), the page keeps showing the previous round until
+    // this one's data lands (see Dashboard), so the navigation doesn't wait for it either.
+    if (cause === 'stay' || queryClient.getQueryData(options.queryKey)) return undefined
+    return prefetch
   },
   component: Dashboard,
   pendingComponent: () => <Loading size="lg" className="opacity-50" flex />,
@@ -68,7 +71,24 @@ export const Route = createFileRoute('/')({
   },
 })
 
+/**
+ * The page at a deferred round. Moving to another round, the header and time travel banner
+ * change at once and the page re-renders for the new round in the background, where React can
+ * pause for input and paint. Until the new round's data has loaded that render suspends, and
+ * the previous round stays on screen rather than a loading screen.
+ */
 function Dashboard() {
+  const { round } = useAtRound()
+  const shownRound = React.useDeferredValue(round)
+  return (
+    <AtRoundProvider round={shownRound}>
+      <DashboardPage />
+    </AtRoundProvider>
+  )
+}
+
+/** Memoized without props, so only a change of the provided round re-renders it, deferred. */
+const DashboardPage = React.memo(function DashboardPage() {
   const { activeAddress } = useWallet()
   const { round } = useAtRound()
 
@@ -121,4 +141,4 @@ function Dashboard() {
       </PageMain>
     </>
   )
-}
+})

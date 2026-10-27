@@ -7,7 +7,7 @@ import { nfdSupportQueryOptions } from '@/api/queries'
 import { roundTimestampQueryOptions, timeTravelSupportQueryOptions } from '@/api/reti'
 import { Tooltip } from '@/components/Tooltip'
 import { Button } from '@/components/ui/button'
-import { useAtRound } from '@/hooks/useAtRound'
+import { usePendingRound } from '@/hooks/useAtRound'
 import { useSetRound } from '@/hooks/useSetRound'
 import { dayjs } from '@/utils/dayjs'
 
@@ -24,7 +24,8 @@ const STEP_BUTTON =
  * (`h-16`, so `top-16`) and is sized to the same height on wide screens.
  */
 export function TimeTravelBanner() {
-  const { round, pinned } = useAtRound()
+  // Where the app is going, from the moment it starts going: the page's own data follows
+  const { round, pinned } = usePendingRound()
   const setRound = useSetRound()
   const params = useParams({ strict: false }) as { validatorId?: string }
 
