@@ -9,6 +9,7 @@ import {
   getSortedRowModel,
   Row,
   SortingState,
+  Table as ReactTable,
   useReactTable,
   VisibilityState,
 } from '@tanstack/react-table'
@@ -75,7 +76,23 @@ interface StakingTableProps {
   constraints: Constraints
 }
 
-export function StakingTable({
+/** What the cells read that changes more often than the columns should be rebuilt */
+interface StakingTableMeta {
+  validatorsById: Map<bigint, Validator>
+}
+
+function validatorOf(
+  table: ReactTable<StakerValidatorData>,
+  validatorId: bigint,
+): Validator | undefined {
+  return (table.options.meta as StakingTableMeta).validatorsById.get(BigInt(validatorId))
+}
+
+/**
+ * Memoized: the dashboard re-renders for every batch of enrichment data, and this table should
+ * only follow when its own props change.
+ */
+export const StakingTable = React.memo(function StakingTable({
   validators,
   stakesByValidator,
   isLoading,
@@ -88,7 +105,14 @@ export function StakingTable({
   const [addStakeValidator, setAddStakeValidator] = React.useState<Validator | null>(null)
   const [unstakeValidator, setUnstakeValidator] = React.useState<Validator | null>(null)
 
+  // use-wallet hands out a new signer function on every render. Read at click time through a
+  // ref, so it doesn't rebuild the columns. Set after commit, not during render: a deferred render
+  // React throws away must not leave its signer behind.
   const { transactionSigner, activeAddress } = useWallet()
+  const signerRef = React.useRef(transactionSigner)
+  React.useLayoutEffect(() => {
+    signerRef.current = transactionSigner
+  })
   const writeAddress = useWriteAddress()
   // Re-renders when a past round's time lands, which the sunset checks in the cells read
   useViewedTime()
@@ -96,246 +120,259 @@ export function StakingTable({
   const router = useRouter()
   const queryClient = useQueryClient()
 
-  const columns: ColumnDef<StakerValidatorData>[] = [
-    {
-      id: 'validator',
-      accessorFn: (row) => row.validatorId,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Validator" />,
-      cell: ({ row }) => {
-        const validator = validators.find((v) => BigInt(v.id) === BigInt(row.original.validatorId))
+  // Validators change with every batch of enrichment data, so the cells look them up through the
+  // table's meta rather than closing over them
+  const meta = React.useMemo<StakingTableMeta>(
+    () => ({ validatorsById: new Map(validators.map((v) => [BigInt(v.id), v])) }),
+    [validators],
+  )
 
-        if (!validator) {
-          return 'Unknown Validator'
-        }
+  // Column definitions. Memoized, and every dependency must be referentially stable:
+  // `flexRender` renders each `cell` as a component, so a new column array gives every cell a
+  // new component type and React remounts the whole table body (tooltips and open menus too).
+  const columns = React.useMemo<ColumnDef<StakerValidatorData>[]>(
+    () => [
+      {
+        id: 'validator',
+        accessorFn: (row) => row.validatorId,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Validator" />,
+        cell: ({ row, table }) => {
+          const validator = validatorOf(table, row.original.validatorId)
 
-        const nfdAppId = validator.config.nfdForInfo
-        return (
-          <div className="flex items-center gap-x-2">
-            {isSunsetted(validator) ? (
-              <Tooltip
-                content={`Sunset on ${dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}`}
+          if (!validator) {
+            return 'Unknown Validator'
+          }
+
+          const nfdAppId = validator.config.nfdForInfo
+          return (
+            <div className="flex items-center gap-x-2">
+              {isSunsetted(validator) ? (
+                <Tooltip
+                  content={`Sunset on ${dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}`}
+                >
+                  <Ban className="h-5 w-5 text-muted-foreground transition-colors" />
+                </Tooltip>
+              ) : isSunsetting(validator) ? (
+                <Tooltip
+                  content={`Will sunset on ${dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}`}
+                >
+                  <Sunset className="h-5 w-5 text-muted-foreground transition-colors" />
+                </Tooltip>
+              ) : null}
+
+              <Link
+                to="/validators/$validatorId"
+                params={{
+                  validatorId: String(row.original.validatorId),
+                }}
+                className="link underline-offset-4"
               >
-                <Ban className="h-5 w-5 text-muted-foreground transition-colors" />
-              </Tooltip>
-            ) : isSunsetting(validator) ? (
-              <Tooltip
-                content={`Will sunset on ${dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}`}
-              >
-                <Sunset className="h-5 w-5 text-muted-foreground transition-colors" />
-              </Tooltip>
-            ) : null}
-
-            <Link
-              to="/validators/$validatorId"
-              params={{
-                validatorId: String(row.original.validatorId),
-              }}
-              className="link underline-offset-4"
-            >
-              {nfdAppId > 0 ? (
-                <NfdDisplay nameOrId={nfdAppId} address={validator.config.owner} />
-              ) : (
-                <span className="font-mono whitespace-nowrap">
-                  {ellipseAddressJsx(validator.config.owner)}
-                </span>
-              )}
-            </Link>
-          </div>
-        )
-      },
-      footer: ({ table }) => (
-        <span className="whitespace-nowrap">
-          Total{' '}
-          <span className="font-normal text-muted-foreground">
-            ({table.getRowModel().rows.length} validators)
-          </span>
-        </span>
-      ),
-    },
-    {
-      accessorKey: 'balance',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Balance" />,
-      cell: ({ row }) => (
-        <AlgoDisplayAmount
-          amount={row.original.balance}
-          microalgos
-          mutedRemainder
-          className="font-mono"
-        />
-      ),
-      footer: ({ table }) => (
-        <AlgoDisplayAmount
-          amount={sumOf(table.getRowModel().rows, 'balance')}
-          microalgos
-          mutedRemainder
-          className="font-mono"
-        />
-      ),
-    },
-    {
-      accessorKey: 'totalRewarded',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Total Rewarded" />,
-      cell: ({ row }) => (
-        <AlgoDisplayAmount
-          amount={row.original.totalRewarded}
-          microalgos
-          mutedRemainder
-          className="font-mono"
-        />
-      ),
-      footer: ({ table }) => (
-        <AlgoDisplayAmount
-          amount={sumOf(table.getRowModel().rows, 'totalRewarded')}
-          microalgos
-          mutedRemainder
-          className="font-mono"
-        />
-      ),
-    },
-    {
-      accessorKey: 'rewardTokenBalance',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Token Balance" />,
-      cell: ({ row }) => {
-        const validator = validators.find((v) => BigInt(v.id) === BigInt(row.original.validatorId))
-        if (!validator?.rewardToken) {
-          return <span className="text-muted-foreground">--</span>
-        }
-        return (
-          <span className="font-mono">
-            {formatAssetAmount(validator.rewardToken, row.original.rewardTokenBalance, {
-              unitName: true,
-            })}
-          </span>
-        )
-      },
-    },
-    {
-      accessorKey: 'nextEpochEligible',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Reward Eligibility" />,
-      cell: ({ row }) => {
-        const stakerValidatorData = row.original
-        const validator = validators.find(
-          (v) => BigInt(v.id) === BigInt(stakerValidatorData.validatorId),
-        )
-        const { epochRoundLength } = validator?.config || {}
-
-        const allPoolsEligibility = stakerValidatorData.pools.map((poolData) => {
-          const eligibility = calculateRewardEligibility(
-            epochRoundLength,
-            poolData.lastPayout,
-            poolData.entryRound,
-          )
-          return eligibility
-        })
-
-        // Take last pool's eligibility %
-        const lastPoolEligibility = allPoolsEligibility.pop()
-        return (
-          <span className="whitespace-nowrap">
-            {lastPoolEligibility !== null ? `${lastPoolEligibility || 0}%` : '--'}
-          </span>
-        )
-      },
-    },
-    {
-      id: 'actions',
-      cell: ({ row }) => {
-        const validatorId = row.original.validatorId
-        const validator = validators.find((v) => BigInt(v.id) === BigInt(validatorId))
-
-        if (!validator || !writeAddress) return null
-
-        const stakingDisabled = isStakingDisabled(writeAddress, validator, constraints)
-        const unstakingDisabled = isUnstakingDisabled(writeAddress, validator, stakesByValidator)
-        const canManage = canManageValidator(writeAddress, validator)
-
-        const isDevelopment = process.env.NODE_ENV === 'development'
-        const canSimulateEpoch = isDevelopment && canManage
-
-        return (
-          <div className="flex items-center justify-end gap-x-2 ml-2">
-            <Button
-              size="sm"
-              className={cn({ hidden: isSunsetted(validator) })}
-              onClick={() => setAddStakeValidator(validator)}
-              disabled={stakingDisabled}
-            >
-              Stake
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setUnstakeValidator(validator)}
-              disabled={unstakingDisabled}
-            >
-              Unstake
-            </Button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">Open menu</span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    onClick={() => setAddStakeValidator(validator)}
-                    disabled={stakingDisabled}
-                  >
-                    Stake
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setUnstakeValidator(validator)}
-                    disabled={unstakingDisabled}
-                  >
-                    Unstake
-                  </DropdownMenuItem>
-
-                  {validator.rewardToken && (
-                    <ClaimTokens
-                      validator={validator}
-                      rewardTokenBalance={row.original.rewardTokenBalance}
-                    />
-                  )}
-                </DropdownMenuGroup>
-
-                {canSimulateEpoch && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        onClick={async () => {
-                          await simulateEpoch(
-                            validator,
-                            row.original.pools,
-                            100,
-                            transactionSigner,
-                            writeAddress,
-                            queryClient,
-                            router,
-                          )
-                        }}
-                        disabled={unstakingDisabled}
-                      >
-                        <FlaskConical className="h-4 w-4 mr-2 text-muted-foreground" />
-                        Simulate Epoch
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                  </>
+                {nfdAppId > 0 ? (
+                  <NfdDisplay nameOrId={nfdAppId} address={validator.config.owner} />
+                ) : (
+                  <span className="font-mono whitespace-nowrap">
+                    {ellipseAddressJsx(validator.config.owner)}
+                  </span>
                 )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )
+              </Link>
+            </div>
+          )
+        },
+        footer: ({ table }) => (
+          <span className="whitespace-nowrap">
+            Total{' '}
+            <span className="font-normal text-muted-foreground">
+              ({table.getRowModel().rows.length} validators)
+            </span>
+          </span>
+        ),
       },
-    },
-  ]
+      {
+        accessorKey: 'balance',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Balance" />,
+        cell: ({ row }) => (
+          <AlgoDisplayAmount
+            amount={row.original.balance}
+            microalgos
+            mutedRemainder
+            className="font-mono"
+          />
+        ),
+        footer: ({ table }) => (
+          <AlgoDisplayAmount
+            amount={sumOf(table.getRowModel().rows, 'balance')}
+            microalgos
+            mutedRemainder
+            className="font-mono"
+          />
+        ),
+      },
+      {
+        accessorKey: 'totalRewarded',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Total Rewarded" />,
+        cell: ({ row }) => (
+          <AlgoDisplayAmount
+            amount={row.original.totalRewarded}
+            microalgos
+            mutedRemainder
+            className="font-mono"
+          />
+        ),
+        footer: ({ table }) => (
+          <AlgoDisplayAmount
+            amount={sumOf(table.getRowModel().rows, 'totalRewarded')}
+            microalgos
+            mutedRemainder
+            className="font-mono"
+          />
+        ),
+      },
+      {
+        accessorKey: 'rewardTokenBalance',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Token Balance" />,
+        cell: ({ row, table }) => {
+          const validator = validatorOf(table, row.original.validatorId)
+          if (!validator?.rewardToken) {
+            return <span className="text-muted-foreground">--</span>
+          }
+          return (
+            <span className="font-mono">
+              {formatAssetAmount(validator.rewardToken, row.original.rewardTokenBalance, {
+                unitName: true,
+              })}
+            </span>
+          )
+        },
+      },
+      {
+        accessorKey: 'nextEpochEligible',
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Reward Eligibility" />
+        ),
+        cell: ({ row, table }) => {
+          const stakerValidatorData = row.original
+          const validator = validatorOf(table, stakerValidatorData.validatorId)
+          const { epochRoundLength } = validator?.config || {}
+
+          const allPoolsEligibility = stakerValidatorData.pools.map((poolData) => {
+            const eligibility = calculateRewardEligibility(
+              epochRoundLength,
+              poolData.lastPayout,
+              poolData.entryRound,
+            )
+            return eligibility
+          })
+
+          // Take last pool's eligibility %
+          const lastPoolEligibility = allPoolsEligibility.pop()
+          return (
+            <span className="whitespace-nowrap">
+              {lastPoolEligibility !== null ? `${lastPoolEligibility || 0}%` : '--'}
+            </span>
+          )
+        },
+      },
+      {
+        id: 'actions',
+        cell: ({ row, table }) => {
+          const validator = validatorOf(table, row.original.validatorId)
+
+          if (!validator || !writeAddress) return null
+
+          const stakingDisabled = isStakingDisabled(writeAddress, validator, constraints)
+          const unstakingDisabled = isUnstakingDisabled(writeAddress, validator, stakesByValidator)
+          const canManage = canManageValidator(writeAddress, validator)
+
+          const isDevelopment = process.env.NODE_ENV === 'development'
+          const canSimulateEpoch = isDevelopment && canManage
+
+          return (
+            <div className="flex items-center justify-end gap-x-2 ml-2">
+              <Button
+                size="sm"
+                className={cn({ hidden: isSunsetted(validator) })}
+                onClick={() => setAddStakeValidator(validator)}
+                disabled={stakingDisabled}
+              >
+                Stake
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setUnstakeValidator(validator)}
+                disabled={unstakingDisabled}
+              >
+                Unstake
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Open menu</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      onClick={() => setAddStakeValidator(validator)}
+                      disabled={stakingDisabled}
+                    >
+                      Stake
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setUnstakeValidator(validator)}
+                      disabled={unstakingDisabled}
+                    >
+                      Unstake
+                    </DropdownMenuItem>
+
+                    {validator.rewardToken && (
+                      <ClaimTokens
+                        validator={validator}
+                        rewardTokenBalance={row.original.rewardTokenBalance}
+                      />
+                    )}
+                  </DropdownMenuGroup>
+
+                  {canSimulateEpoch && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          onClick={async () => {
+                            await simulateEpoch(
+                              validator,
+                              row.original.pools,
+                              100,
+                              signerRef.current,
+                              writeAddress,
+                              queryClient,
+                              router,
+                            )
+                          }}
+                          disabled={unstakingDisabled}
+                        >
+                          <FlaskConical className="h-4 w-4 mr-2 text-muted-foreground" />
+                          Simulate Epoch
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )
+        },
+      },
+    ],
+    [constraints, writeAddress, stakesByValidator, queryClient, router],
+  )
 
   const table = useReactTable({
     data: stakesByValidator,
     columns,
+    meta,
     filterFns: {
       global: globalFilterFn,
     },
@@ -447,7 +484,7 @@ export function StakingTable({
       />
     </>
   )
-}
+})
 
 /** A bigint column's total over the rows shown */
 function sumOf(rows: Row<StakerValidatorData>[], key: 'balance' | 'totalRewarded'): bigint {

@@ -17,6 +17,7 @@ import {
 } from '@tanstack/react-table'
 import { useWallet } from '@txnlab/use-wallet-react'
 import { useViewedTime, useWriteAddress } from '@/hooks/useAtRound'
+import { useBlockTime } from '@/hooks/useBlockTime'
 import { Ban, ChevronRight, FlaskConical, MoreHorizontal, Sunset } from 'lucide-react'
 import * as React from 'react'
 import { AddPoolModal } from '@/components/AddPoolModal'
@@ -71,7 +72,7 @@ import {
 import { dayjs } from '@/utils/dayjs'
 import { sendRewardTokensToPool, simulateEpoch } from '@/utils/development'
 import { ellipseAddressJsx } from '@/utils/ellipseAddress'
-import { formatAmount, formatAssetAmount } from '@/utils/format'
+import { compactFormat, formatAmount, formatAssetAmount } from '@/utils/format'
 import { globalFilterFn, ineligibleFilter, MIN_ELIGIBLE_STAKE, sunsetFilter } from '@/utils/table'
 import { cn } from '@/utils/ui'
 import { ValidatorRewards } from '@/components/ValidatorRewards'
@@ -83,7 +84,40 @@ interface ValidatorTableProps {
   isLoading: boolean
 }
 
-export function ValidatorTable({
+const sortRewardsFn: SortingFn<Validator> = (rowA, rowB) => {
+  const a = rowA.original
+  const b = rowB.original
+
+  // Assign values for epoch payout status
+  const getStatus = (validator: Validator): number => {
+    if (validator.roundsSinceLastPayout === undefined) return 0 // red
+    if (validator.roundsSinceLastPayout < 21n) return 2 // green
+    if (validator.roundsSinceLastPayout < 1200n) return 1 // yellow
+    return 0 // red
+  }
+
+  const statusA = getStatus(a)
+  const statusB = getStatus(b)
+
+  // Compare status
+  if (statusA !== statusB) {
+    return statusA - statusB
+  }
+
+  // If status is the same, compare rewardsBalance
+  if (a.rewardsBalance === undefined && b.rewardsBalance === undefined) return 0
+  if (a.rewardsBalance === undefined) return 1
+  if (b.rewardsBalance === undefined) return -1
+
+  // Compare rewardsBalance
+  return Number(a.rewardsBalance - b.rewardsBalance)
+}
+
+/**
+ * Memoized: the dashboard re-renders for every batch of enrichment data, and this table should
+ * only follow when its own props change.
+ */
+export const ValidatorTable = React.memo(function ValidatorTable({
   validators,
   stakesByValidator,
   constraints,
@@ -93,11 +127,21 @@ export function ValidatorTable({
   const [unstakeValidator, setUnstakeValidator] = React.useState<Validator | null>(null)
   const [addPoolValidator, setAddPoolValidator] = React.useState<Validator | null>(null)
 
+  // use-wallet hands out a new signer function on every render. Read at click time through a
+  // ref, so it doesn't rebuild the columns. Set after commit, not during render: a deferred render
+  // React throws away must not leave its signer behind.
   const { transactionSigner } = useWallet()
+  const signerRef = React.useRef(transactionSigner)
+  React.useLayoutEffect(() => {
+    signerRef.current = transactionSigner
+  })
+
   const writeAddress = useWriteAddress()
   // The time shown, which the sunset checks (and the sunset filter) read: a past round's can
   // land after the table first renders
   const viewedTime = useViewedTime()
+  // Read once here rather than in every row's status cell
+  const blockTime = useBlockTime()
 
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -114,35 +158,6 @@ export function ValidatorTable({
     } else {
       setSorting(updaterOrValue)
     }
-  }
-
-  const sortRewardsFn: SortingFn<Validator> = (rowA, rowB) => {
-    const a = rowA.original
-    const b = rowB.original
-
-    // Assign values for epoch payout status
-    const getStatus = (validator: Validator): number => {
-      if (validator.roundsSinceLastPayout === undefined) return 0 // red
-      if (validator.roundsSinceLastPayout < 21n) return 2 // green
-      if (validator.roundsSinceLastPayout < 1200n) return 1 // yellow
-      return 0 // red
-    }
-
-    const statusA = getStatus(a)
-    const statusB = getStatus(b)
-
-    // Compare status
-    if (statusA !== statusB) {
-      return statusA - statusB
-    }
-
-    // If status is the same, compare rewardsBalance
-    if (a.rewardsBalance === undefined && b.rewardsBalance === undefined) return 0
-    if (a.rewardsBalance === undefined) return 1
-    if (b.rewardsBalance === undefined) return -1
-
-    // Compare rewardsBalance
-    return Number(a.rewardsBalance - b.rewardsBalance)
   }
 
   // Persistent column visibility state
@@ -181,348 +196,353 @@ export function ValidatorTable({
   // Persistent global filter state
   const [globalFilter, setGlobalFilter] = useLocalStorage<string>('validator-global-filter', '')
 
-  // Column definitions
-  const columns: ColumnDef<Validator>[] = [
-    {
-      id: 'expander',
-      header: () => null,
-      cell: ({ row }) => {
-        return row.getCanExpand() ? (
-          <button
-            type="button"
-            aria-label={row.getIsExpanded() ? 'Collapse row' : 'Expand row'}
-            title={row.getIsExpanded() ? 'Collapse row' : 'Expand row'}
-            data-state={row.getIsExpanded() ? 'open' : 'closed'}
-            className="m-0 p-2 cursor-pointer [&[data-state=open]>svg]:rotate-90"
-            onClick={row.getToggleExpandedHandler()}
-          >
-            <ChevronRight className="h-5 w-5" aria-hidden="true" />
-          </button>
-        ) : (
-          <span aria-hidden="true">&nbsp;</span>
-        )
+  // Column definitions. Memoized, and every dependency must be referentially stable:
+  // `flexRender` renders each `cell` as a component, so a new column array gives every cell a
+  // new component type and React remounts the whole table body (tooltips and open menus too).
+  const columns = React.useMemo<ColumnDef<Validator>[]>(
+    () => [
+      {
+        id: 'expander',
+        header: () => null,
+        cell: ({ row }) => {
+          return row.getCanExpand() ? (
+            <button
+              type="button"
+              aria-label={row.getIsExpanded() ? 'Collapse row' : 'Expand row'}
+              title={row.getIsExpanded() ? 'Collapse row' : 'Expand row'}
+              data-state={row.getIsExpanded() ? 'open' : 'closed'}
+              className="m-0 p-2 cursor-pointer [&[data-state=open]>svg]:rotate-90"
+              onClick={row.getToggleExpandedHandler()}
+            >
+              <ChevronRight className="h-5 w-5" aria-hidden="true" />
+            </button>
+          ) : (
+            <span aria-hidden="true">&nbsp;</span>
+          )
+        },
       },
-    },
-    {
-      id: 'validator',
-      accessorFn: (row) => row.nfd?.name || row.config.owner.toLowerCase(),
-      filterFn: sunsetFilter,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Validator" />,
-      cell: ({ row }) => {
-        const validator = row.original
-        const nfd = validator.nfd
+      {
+        id: 'validator',
+        accessorFn: (row) => row.nfd?.name || row.config.owner.toLowerCase(),
+        filterFn: sunsetFilter,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Validator" />,
+        cell: ({ row }) => {
+          const validator = row.original
+          const nfd = validator.nfd
 
-        // Memoize the cell content
-        const content = React.useMemo(() => {
+          // Memoize the cell content
+          const content = React.useMemo(() => {
+            return (
+              <div className="flex items-center gap-x-2 min-w-0 max-w-[10rem] xl:max-w-[16rem]">
+                {isSunsetted(validator, viewedTime) ? (
+                  <Tooltip
+                    content={`Sunset on ${dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}`}
+                  >
+                    <Ban className="h-5 w-5 text-muted-foreground transition-colors" />
+                  </Tooltip>
+                ) : isSunsetting(validator) ? (
+                  <Tooltip
+                    content={`Will sunset on ${dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}`}
+                  >
+                    <Sunset className="h-5 w-5 text-muted-foreground transition-colors" />
+                  </Tooltip>
+                ) : null}
+                {nfd ? (
+                  <ValidatorNfdDisplay
+                    nfd={nfd}
+                    validatorId={validator.id}
+                    isSunsetted={isSunsetted(validator, viewedTime)}
+                  />
+                ) : (
+                  <Link
+                    to="/validators/$validatorId"
+                    params={{
+                      validatorId: String(validator.id),
+                    }}
+                    className="link underline-offset-4 whitespace-nowrap font-mono"
+                    preload="intent"
+                  >
+                    {validator.nfdLoading ? (
+                      <NfdLoadingDisplay address={validator.config.owner} />
+                    ) : (
+                      ellipseAddressJsx(validator.config.owner)
+                    )}
+                  </Link>
+                )}
+              </div>
+            )
+          }, [validator, nfd, viewedTime])
+
+          return content
+        },
+      },
+      {
+        id: 'minEntry',
+        accessorFn: (row) => Number(row.config.minEntryStake),
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Min Entry" />,
+        cell: ({ row }) => {
+          const validator = row.original
+          return <AlgoDisplayAmount amount={validator.config.minEntryStake} microalgos />
+        },
+      },
+      {
+        id: 'stake',
+        accessorFn: (row) => Number(row.state.totalAlgoStaked),
+        filterFn: ineligibleFilter,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Stake" />,
+        cell: ({ row }) => {
+          const validator = row.original
+
+          if (validator.state.numPools === 0) return '--'
+
+          const currentStakeAlgos = AlgoAmount.MicroAlgos(
+            Number(validator.state.totalAlgoStaked),
+          ).algos
+          const currentStakeCompact = compactFormat.format(currentStakeAlgos)
+
+          const maxStake = calculateMaxStake(validator, constraints)
+          const maxStakeAlgos = AlgoAmount.MicroAlgos(Number(maxStake)).algos
+          const maxStakeCompact = compactFormat.format(maxStakeAlgos)
+
+          const saturationLevel = calculateStakeSaturation(validator, constraints)
+          const saturationPercent = calculateSaturationPercentage(validator, constraints)
+
           return (
-            <div className="flex items-center gap-x-2 min-w-0 max-w-[10rem] xl:max-w-[16rem]">
-              {isSunsetted(validator, viewedTime) ? (
-                <Tooltip
-                  content={`Sunset on ${dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}`}
+            <span className="whitespace-nowrap">
+              <AlgoSymbol />
+              {currentStakeCompact} / {maxStakeCompact}
+              <TrafficLight
+                tooltipContent={`${saturationPercent}%`}
+                indicator={saturationLevel}
+                className="ml-2"
+              />
+            </span>
+          )
+        },
+      },
+      {
+        id: 'status',
+        accessorFn: (row) => row.rewardsBalance,
+        sortingFn: sortRewardsFn,
+        sortUndefined: -1,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
+        cell: ({ row }) => {
+          const validator = row.original
+          if (validator.state.numPools == 0) return '--'
+
+          return <ValidatorStatus validator={validator} blockTime={blockTime} />
+        },
+      },
+      {
+        id: 'apy',
+        accessorFn: (row) => row.apy,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Est. APY" />,
+        cell: ({ row }) => {
+          if (!row.original.apy) return <span className="text-muted-foreground">--</span>
+          return (
+            <Tooltip
+              content={`${formatAmount(Number(row.original.extDeposits), { precision: 2 })} in extra deposits`}
+            >
+              <span>
+                {formatAmount(row.original.apy < 0 ? 0 : row.original.apy, { precision: 1 })}%
+              </span>
+            </Tooltip>
+          )
+        },
+      },
+      {
+        id: 'pend. reward',
+        accessorFn: (row) => row.rewardsBalance,
+        sortingFn: sortRewardsFn,
+        sortUndefined: -1,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Pend. Rewards" />,
+        cell: ({ row }) => {
+          const validator = row.original
+          if (validator.state.numPools == 0) return '--'
+
+          return <ValidatorRewards validator={validator} />
+        },
+      },
+      {
+        id: 'token',
+        accessorFn: (row) => row.config.rewardTokenId,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Token" />,
+        cell: ({ row }) => {
+          const validator = row.original
+          if (!validator.rewardToken) {
+            return <span className="text-muted-foreground">--</span>
+          }
+
+          const perEpochAmount = formatAssetAmount(
+            validator.rewardToken,
+            validator.config.rewardPerPayout,
+            { unitName: true },
+          )
+
+          const tooltipContent = `${perEpochAmount} per epoch`
+
+          return (
+            <Tooltip content={tooltipContent}>
+              <span className="font-mono">{validator.rewardToken.params?.unitName}</span>
+            </Tooltip>
+          )
+        },
+      },
+      {
+        id: 'fee',
+        accessorFn: (row) => row.config.percentToValidator,
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Fee" />,
+        cell: ({ row }) => {
+          const validator = row.original
+          const percent = Number(validator.config.percentToValidator) / 10000
+          return `${percent}%`
+        },
+      },
+      {
+        id: 'actions',
+        cell: ({ row }) => {
+          const validator = row.original
+          const firstPoolFull = isFirstPoolFull(validator, constraints)
+          const stakingDisabled = isStakingDisabled(writeAddress, validator, constraints)
+          const unstakingDisabled = isUnstakingDisabled(writeAddress, validator, stakesByValidator)
+          const addingPoolDisabled = isAddingPoolDisabled(writeAddress, validator, constraints)
+          const canManage = canManageValidator(writeAddress, validator)
+
+          const isDevelopment = process.env.NODE_ENV === 'development'
+          const hasRewardToken = validator.config.rewardTokenId > 0
+          const canSendRewardTokens = isDevelopment && canManage && hasRewardToken
+          const sendRewardTokensDisabled = validator.state.numPools === 0
+
+          const stakerValidatorData = stakesByValidator.find(
+            (data) => data.validatorId === BigInt(validator.id),
+          )
+          const stakerPoolData = stakerValidatorData?.pools
+          const canSimulateEpoch = isDevelopment && canManage && !!stakerPoolData
+
+          return (
+            <div className="flex items-center justify-end gap-x-2">
+              {isSunsetting(validator) && !unstakingDisabled ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setUnstakeValidator(validator)}
                 >
-                  <Ban className="h-5 w-5 text-muted-foreground transition-colors" />
-                </Tooltip>
-              ) : isSunsetting(validator) ? (
-                <Tooltip
-                  content={`Will sunset on ${dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}`}
-                >
-                  <Sunset className="h-5 w-5 text-muted-foreground transition-colors" />
-                </Tooltip>
-              ) : null}
-              {nfd ? (
-                <ValidatorNfdDisplay
-                  nfd={nfd}
-                  validatorId={validator.id}
-                  isSunsetted={isSunsetted(validator, viewedTime)}
-                />
+                  Unstake
+                </Button>
               ) : (
-                <Link
-                  to="/validators/$validatorId"
-                  params={{
-                    validatorId: String(validator.id),
-                  }}
-                  className="link underline-offset-4 whitespace-nowrap font-mono"
-                  preload="intent"
+                <Button
+                  size="sm"
+                  disabled={firstPoolFull || stakingDisabled}
+                  onClick={() => setAddStakeValidator(validator)}
+                  className="min-w-[70px]"
                 >
-                  {validator.nfdLoading ? (
-                    <NfdLoadingDisplay address={validator.config.owner} />
-                  ) : (
-                    ellipseAddressJsx(validator.config.owner)
-                  )}
-                </Link>
+                  {firstPoolFull ? 'Full' : 'Stake'}
+                </Button>
               )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Open menu</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  {!!writeAddress && (
+                    <>
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          onClick={() => setAddStakeValidator(validator)}
+                          disabled={stakingDisabled}
+                        >
+                          Stake
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setUnstakeValidator(validator)}
+                          disabled={unstakingDisabled}
+                        >
+                          Unstake
+                        </DropdownMenuItem>
+
+                        {canManage && (
+                          <DropdownMenuItem
+                            onClick={() => setAddPoolValidator(validator)}
+                            disabled={addingPoolDisabled}
+                          >
+                            Add Staking Pool
+                          </DropdownMenuItem>
+                        )}
+
+                        {canSimulateEpoch && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuGroup>
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  await simulateEpoch(
+                                    validator,
+                                    stakerPoolData,
+                                    100,
+                                    signerRef.current,
+                                    writeAddress!,
+                                    queryClient,
+                                    router,
+                                  )
+                                }}
+                                disabled={unstakingDisabled}
+                              >
+                                <FlaskConical className="h-4 w-4 mr-2 text-muted-foreground" />
+                                Simulate Epoch
+                              </DropdownMenuItem>
+                            </DropdownMenuGroup>
+                          </>
+                        )}
+
+                        {canSendRewardTokens && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuGroup>
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  await sendRewardTokensToPool(
+                                    validator,
+                                    5000,
+                                    signerRef.current,
+                                    writeAddress!,
+                                  )
+                                }}
+                                disabled={sendRewardTokensDisabled}
+                              >
+                                <FlaskConical className="h-4 w-4 mr-2 text-muted-foreground" />
+                                Send Tokens
+                              </DropdownMenuItem>
+                            </DropdownMenuGroup>
+                          </>
+                        )}
+                      </DropdownMenuGroup>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        to="/validators/$validatorId"
+                        params={{ validatorId: validator.id.toString() }}
+                        preload="intent"
+                      >
+                        {canManage ? 'Manage' : 'View'}
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )
-        }, [validator, nfd, viewedTime])
-
-        return content
+        },
+        size: 120,
       },
-    },
-    {
-      id: 'minEntry',
-      accessorFn: (row) => Number(row.config.minEntryStake),
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Min Entry" />,
-      cell: ({ row }) => {
-        const validator = row.original
-        return <AlgoDisplayAmount amount={validator.config.minEntryStake} microalgos />
-      },
-    },
-    {
-      id: 'stake',
-      accessorFn: (row) => Number(row.state.totalAlgoStaked),
-      filterFn: ineligibleFilter,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Stake" />,
-      cell: ({ row }) => {
-        const validator = row.original
-
-        if (validator.state.numPools === 0) return '--'
-
-        const currentStakeAlgos = AlgoAmount.MicroAlgos(
-          Number(validator.state.totalAlgoStaked),
-        ).algos
-        const currentStakeCompact = new Intl.NumberFormat(undefined, {
-          notation: 'compact',
-        }).format(currentStakeAlgos)
-
-        const maxStake = calculateMaxStake(validator, constraints)
-        const maxStakeAlgos = AlgoAmount.MicroAlgos(Number(maxStake)).algos
-        const maxStakeCompact = new Intl.NumberFormat(undefined, {
-          notation: 'compact',
-        }).format(maxStakeAlgos)
-
-        const saturationLevel = calculateStakeSaturation(validator, constraints)
-        const saturationPercent = calculateSaturationPercentage(validator, constraints)
-
-        return (
-          <span className="whitespace-nowrap">
-            <AlgoSymbol />
-            {currentStakeCompact} / {maxStakeCompact}
-            <TrafficLight
-              tooltipContent={`${saturationPercent}%`}
-              indicator={saturationLevel}
-              className="ml-2"
-            />
-          </span>
-        )
-      },
-    },
-    {
-      id: 'status',
-      accessorFn: (row) => row.rewardsBalance,
-      sortingFn: sortRewardsFn,
-      sortUndefined: -1,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
-      cell: ({ row }) => {
-        const validator = row.original
-        if (validator.state.numPools == 0) return '--'
-
-        return <ValidatorStatus validator={validator} />
-      },
-    },
-    {
-      id: 'apy',
-      accessorFn: (row) => row.apy,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Est. APY" />,
-      cell: ({ row }) => {
-        if (!row.original.apy) return <span className="text-muted-foreground">--</span>
-        return (
-          <Tooltip
-            content={`${formatAmount(Number(row.original.extDeposits), { precision: 2 })} in extra deposits`}
-          >
-            <span>
-              {formatAmount(row.original.apy < 0 ? 0 : row.original.apy, { precision: 1 })}%
-            </span>
-          </Tooltip>
-        )
-      },
-    },
-    {
-      id: 'pend. reward',
-      accessorFn: (row) => row.rewardsBalance,
-      sortingFn: sortRewardsFn,
-      sortUndefined: -1,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Pend. Rewards" />,
-      cell: ({ row }) => {
-        const validator = row.original
-        if (validator.state.numPools == 0) return '--'
-
-        return <ValidatorRewards validator={validator} />
-      },
-    },
-    {
-      id: 'token',
-      accessorFn: (row) => row.config.rewardTokenId,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Token" />,
-      cell: ({ row }) => {
-        const validator = row.original
-        if (!validator.rewardToken) {
-          return <span className="text-muted-foreground">--</span>
-        }
-
-        const perEpochAmount = formatAssetAmount(
-          validator.rewardToken,
-          validator.config.rewardPerPayout,
-          { unitName: true },
-        )
-
-        const tooltipContent = `${perEpochAmount} per epoch`
-
-        return (
-          <Tooltip content={tooltipContent}>
-            <span className="font-mono">{validator.rewardToken.params?.unitName}</span>
-          </Tooltip>
-        )
-      },
-    },
-    {
-      id: 'fee',
-      accessorFn: (row) => row.config.percentToValidator,
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Fee" />,
-      cell: ({ row }) => {
-        const validator = row.original
-        const percent = Number(validator.config.percentToValidator) / 10000
-        return `${percent}%`
-      },
-    },
-    {
-      id: 'actions',
-      cell: ({ row }) => {
-        const validator = row.original
-        const firstPoolFull = isFirstPoolFull(validator, constraints)
-        const stakingDisabled = isStakingDisabled(writeAddress, validator, constraints)
-        const unstakingDisabled = isUnstakingDisabled(writeAddress, validator, stakesByValidator)
-        const addingPoolDisabled = isAddingPoolDisabled(writeAddress, validator, constraints)
-        const canManage = canManageValidator(writeAddress, validator)
-
-        const isDevelopment = process.env.NODE_ENV === 'development'
-        const hasRewardToken = validator.config.rewardTokenId > 0
-        const canSendRewardTokens = isDevelopment && canManage && hasRewardToken
-        const sendRewardTokensDisabled = validator.state.numPools === 0
-
-        const stakerValidatorData = stakesByValidator.find(
-          (data) => data.validatorId === BigInt(validator.id),
-        )
-        const stakerPoolData = stakerValidatorData?.pools
-        const canSimulateEpoch = isDevelopment && canManage && !!stakerPoolData
-
-        return (
-          <div className="flex items-center justify-end gap-x-2">
-            {isSunsetting(validator) && !unstakingDisabled ? (
-              <Button size="sm" variant="secondary" onClick={() => setUnstakeValidator(validator)}>
-                Unstake
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                disabled={firstPoolFull || stakingDisabled}
-                onClick={() => setAddStakeValidator(validator)}
-                className="min-w-[70px]"
-              >
-                {firstPoolFull ? 'Full' : 'Stake'}
-              </Button>
-            )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">Open menu</span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                {!!writeAddress && (
-                  <>
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        onClick={() => setAddStakeValidator(validator)}
-                        disabled={stakingDisabled}
-                      >
-                        Stake
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => setUnstakeValidator(validator)}
-                        disabled={unstakingDisabled}
-                      >
-                        Unstake
-                      </DropdownMenuItem>
-
-                      {canManage && (
-                        <DropdownMenuItem
-                          onClick={() => setAddPoolValidator(validator)}
-                          disabled={addingPoolDisabled}
-                        >
-                          Add Staking Pool
-                        </DropdownMenuItem>
-                      )}
-
-                      {canSimulateEpoch && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem
-                              onClick={async () => {
-                                await simulateEpoch(
-                                  validator,
-                                  stakerPoolData,
-                                  100,
-                                  transactionSigner,
-                                  writeAddress!,
-                                  queryClient,
-                                  router,
-                                )
-                              }}
-                              disabled={unstakingDisabled}
-                            >
-                              <FlaskConical className="h-4 w-4 mr-2 text-muted-foreground" />
-                              Simulate Epoch
-                            </DropdownMenuItem>
-                          </DropdownMenuGroup>
-                        </>
-                      )}
-
-                      {canSendRewardTokens && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem
-                              onClick={async () => {
-                                await sendRewardTokensToPool(
-                                  validator,
-                                  5000,
-                                  transactionSigner,
-                                  writeAddress!,
-                                )
-                              }}
-                              disabled={sendRewardTokensDisabled}
-                            >
-                              <FlaskConical className="h-4 w-4 mr-2 text-muted-foreground" />
-                              Send Tokens
-                            </DropdownMenuItem>
-                          </DropdownMenuGroup>
-                        </>
-                      )}
-                    </DropdownMenuGroup>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-                <DropdownMenuGroup>
-                  <DropdownMenuItem asChild>
-                    <Link
-                      to="/validators/$validatorId"
-                      params={{ validatorId: validator.id.toString() }}
-                      preload="intent"
-                    >
-                      {canManage ? 'Manage' : 'View'}
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )
-      },
-      size: 120,
-    },
-  ]
+    ],
+    [constraints, viewedTime, blockTime, writeAddress, stakesByValidator, queryClient, router],
+  )
 
   // A new array when the time shown changes, so the table re-runs the sunset filter
   const data = React.useMemo(() => [...validators], [validators, viewedTime])
@@ -683,4 +703,4 @@ export function ValidatorTable({
       <AddPoolModal validator={addPoolValidator} setValidator={setAddPoolValidator} />
     </>
   )
-}
+})

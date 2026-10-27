@@ -46,6 +46,13 @@ export function convertToBaseUnits(
   }
 }
 
+/**
+ * Shared formatters. Building an `Intl.NumberFormat` costs far more than formatting with one, and
+ * these run in every table cell on every render.
+ */
+export const integerFormat = new Intl.NumberFormat()
+export const compactFormat = new Intl.NumberFormat(undefined, { notation: 'compact' })
+
 type FormatAmountOptions = {
   compact?: boolean
   precision?: number
@@ -114,7 +121,7 @@ export function formatAmount(
   let [integerPart, decimalPart] = fixedAmount.split('.')
 
   // Add commas to the integer part
-  integerPart = new Intl.NumberFormat().format(parseInt(integerPart, 10))
+  integerPart = integerFormat.format(parseInt(integerPart, 10))
 
   // Handle decimal trimming
   if (trim && decimalPart) {

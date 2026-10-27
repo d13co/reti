@@ -1,6 +1,6 @@
 import Big from 'big.js'
 import { AlgoSymbol } from '@/components/AlgoSymbol'
-import { convertFromBaseUnits, formatWithPrecision } from '@/utils/format'
+import { convertFromBaseUnits, formatWithPrecision, integerFormat } from '@/utils/format'
 import { cn } from '@/utils/ui'
 
 interface AlgoDisplayAmountProps {
@@ -57,7 +57,7 @@ export function AlgoDisplayAmount({
     )
   }
 
-  parts[0] = new Intl.NumberFormat().format(parseFloat(parts[0]))
+  parts[0] = integerFormat.format(parseFloat(parts[0]))
 
   return (
     <span className={classes}>

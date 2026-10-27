@@ -235,7 +235,13 @@ const DEFAULT_RANGE: HistoryRange = '1m'
  * Stake and stakers over time, one small chart per measure (they don't share a scale), ending at
  * the round on screen. Clicking a point opens the app at that round.
  */
-export function TotalsHistory({ target, title, className }: TotalsHistoryProps) {
+// Memoized: on the dashboard it sits beside tables that re-render for every batch of data, and
+// redrawing the chart with them is wasted work. Pass a stable `target`.
+export const TotalsHistory = React.memo(function TotalsHistory({
+  target,
+  title,
+  className,
+}: TotalsHistoryProps) {
   const supportQuery = useQuery(timeTravelSupportQueryOptions)
   const { round, pinned } = useAtRound()
   const [range, setRange] = React.useState<HistoryRange>(DEFAULT_RANGE)
@@ -286,7 +292,7 @@ export function TotalsHistory({ target, title, className }: TotalsHistoryProps) 
       </CardContent>
     </Card>
   )
-}
+})
 
 interface HistoryChartsProps {
   target: TotalsTarget

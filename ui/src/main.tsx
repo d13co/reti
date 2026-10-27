@@ -13,6 +13,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { HelmetProvider } from 'react-helmet-async'
 import ErrorBoundary from '@/components/ErrorBoundary'
+import { SharedTooltipProvider } from '@/components/Tooltip'
 import { Toaster } from '@/components/ui/sonner'
 import { WalletShortcutHandler } from '@/components/WalletShortcutHandler'
 import { WALLETCONNECT_PROJECT_ID } from '@/constants/env'
@@ -123,8 +124,10 @@ function AppProviders() {
         <QueryClientProvider client={queryClient}>
           <SnackbarProvider maxSnack={3}>
             <WalletProvider manager={walletManager}>
-              <InnerApp />
-              <WalletShortcutHandler />
+              <SharedTooltipProvider>
+                <InnerApp />
+                <WalletShortcutHandler />
+              </SharedTooltipProvider>
             </WalletProvider>
           </SnackbarProvider>
         </QueryClientProvider>

@@ -5,16 +5,18 @@ import { TrafficLight } from '@/components/TrafficLight'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Indicator } from '@/constants/indicator'
 import { useAtRound } from '@/hooks/useAtRound'
-import { useBlockTime } from '@/hooks/useBlockTime'
+import { BlockTime } from '@/hooks/useBlockTime'
 import { Validator } from '@/interfaces/validator'
 import { formatDuration } from '@/utils/dayjs'
 import { formatAmount } from '@/utils/format'
 
-interface ValidatorRewardsProps {
+interface ValidatorStatusProps {
   validator: Validator
+  /** From the table, which reads it once for every row */
+  blockTime: BlockTime
 }
 
-export function ValidatorStatus({ validator }: ValidatorRewardsProps) {
+export function ValidatorStatus({ validator, blockTime }: ValidatorStatusProps) {
   const queryClient = useQueryClient()
   const { round, pinned } = useAtRound()
 
@@ -33,8 +35,6 @@ export function ValidatorStatus({ validator }: ValidatorRewardsProps) {
     ),
     enabled: false,
   })
-
-  const blockTime = useBlockTime()
 
   if (metricsQuery.isPending) {
     return (

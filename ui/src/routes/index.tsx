@@ -1,6 +1,7 @@
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useWallet } from '@txnlab/use-wallet-react'
+import * as React from 'react'
 import { seriesExtentQueryOptions } from '@/api/history'
 import {
   allValidatorsQueryOptions,
@@ -17,9 +18,13 @@ import { TotalsHistory } from '@/components/TimeTravel/TotalsHistory'
 import { ValidatorTable } from '@/components/ValidatorTable'
 import { useAtRound } from '@/hooks/useAtRound'
 import { useValidators } from '@/hooks/useValidators'
+import { StakerValidatorData } from '@/interfaces/staking'
 import { parseRound } from '@/utils/round'
 
 const REGISTRY = { registry: true } as const
+
+/** Stable while there are no stakes, so the memoized tables don't re-render for a new `[]` */
+const NO_STAKES: StakerValidatorData[] = []
 
 export const Route = createFileRoute('/')({
   beforeLoad: ({ context: { queryClient, walletManager }, search }) => {
@@ -69,10 +74,18 @@ function Dashboard() {
   const constraintsQuery = useSuspenseQuery(constraintsQueryOptions(round))
   const constraints = constraintsQuery.data
 
-  const { validators, isLoading: validatorsLoading, error: validatorsError } = useValidators()
+  const {
+    validators: latestValidators,
+    isLoading: validatorsLoading,
+    error: validatorsError,
+  } = useValidators()
+  // Names, metrics and APYs land in many small batches after the first paint. Deferred, the
+  // tables re-render for them in the background, where React can drop the batches it falls behind
+  // on and clicks and typing go first.
+  const validators = React.useDeferredValue(latestValidators)
 
   const stakesQuery = useQuery(stakesQueryOptions(activeAddress, round))
-  const stakesByValidator = stakesQuery.data || []
+  const stakesByValidator = stakesQuery.data ?? NO_STAKES
 
   if (validatorsError) {
     return <div>Error loading validators: {validatorsError.message}</div>
