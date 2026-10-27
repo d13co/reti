@@ -15,6 +15,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
+import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { useViewedTime, useWriteAddress } from '@/hooks/useAtRound'
 import { useBlockTime } from '@/hooks/useBlockTime'
 import { Ban, ChevronRight, Sunset } from 'lucide-react'
@@ -172,6 +173,7 @@ export const ValidatorTable = React.memo(function ValidatorTable({
     () => [
       {
         id: 'expander',
+        size: 48,
         header: () => null,
         cell: ({ row }) => {
           return row.getCanExpand() ? (
@@ -192,6 +194,8 @@ export const ValidatorTable = React.memo(function ValidatorTable({
       },
       {
         id: 'validator',
+        // The name cell's `max-w-[10rem]`, plus padding
+        size: 176,
         accessorFn: (row) => row.nfd?.name || row.config.owner.toLowerCase(),
         filterFn: sunsetFilter,
         header: ({ column }) => <DataTableColumnHeader column={column} title="Validator" />,
@@ -242,6 +246,7 @@ export const ValidatorTable = React.memo(function ValidatorTable({
       },
       {
         id: 'minEntry',
+        size: 116,
         accessorFn: (row) => Number(row.config.minEntryStake),
         header: ({ column }) => <DataTableColumnHeader column={column} title="Min Entry" />,
         cell: ({ row }) => {
@@ -251,6 +256,7 @@ export const ValidatorTable = React.memo(function ValidatorTable({
       },
       {
         id: 'stake',
+        size: 116,
         accessorFn: (row) => Number(row.state.totalAlgoStaked),
         filterFn: ineligibleFilter,
         header: ({ column }) => <DataTableColumnHeader column={column} title="Stake" />,
@@ -286,6 +292,7 @@ export const ValidatorTable = React.memo(function ValidatorTable({
       },
       {
         id: 'status',
+        size: 96,
         accessorFn: (row) => row.rewardsBalance,
         sortingFn: sortRewardsFn,
         sortUndefined: -1,
@@ -299,6 +306,7 @@ export const ValidatorTable = React.memo(function ValidatorTable({
       },
       {
         id: 'apy',
+        size: 110,
         accessorFn: (row) => row.apy,
         header: ({ column }) => <DataTableColumnHeader column={column} title="Est. APY" />,
         cell: ({ row }) => {
@@ -316,6 +324,7 @@ export const ValidatorTable = React.memo(function ValidatorTable({
       },
       {
         id: 'pend. reward',
+        size: 152,
         accessorFn: (row) => row.rewardsBalance,
         sortingFn: sortRewardsFn,
         sortUndefined: -1,
@@ -329,6 +338,7 @@ export const ValidatorTable = React.memo(function ValidatorTable({
       },
       {
         id: 'token',
+        size: 94,
         accessorFn: (row) => row.config.rewardTokenId,
         header: ({ column }) => <DataTableColumnHeader column={column} title="Token" />,
         cell: ({ row }) => {
@@ -354,6 +364,7 @@ export const ValidatorTable = React.memo(function ValidatorTable({
       },
       {
         id: 'fee',
+        size: 80,
         accessorFn: (row) => row.config.percentToValidator,
         header: ({ column }) => <DataTableColumnHeader column={column} title="Fee" />,
         cell: ({ row }) => {
@@ -364,6 +375,7 @@ export const ValidatorTable = React.memo(function ValidatorTable({
       },
       {
         id: 'actions',
+        size: 128,
         cell: ({ row }) => (
           <ValidatorActionsCell
             validator={row.original}
@@ -372,7 +384,6 @@ export const ValidatorTable = React.memo(function ValidatorTable({
             stakesByValidator={stakesByValidator}
           />
         ),
-        size: 120,
       },
     ],
     [constraints, viewedTime, blockTime, writeAddress, stakesByValidator],
@@ -407,6 +418,10 @@ export const ValidatorTable = React.memo(function ValidatorTable({
       globalFilter,
     },
   })
+
+  const { rows } = table.getRowModel()
+  // Where the rows start, for the virtualizer
+  const headerRef = React.useRef<HTMLTableSectionElement>(null)
 
   // The visible columns, as a value the memoized rows can compare
   const visibleColumns = table
@@ -478,13 +493,30 @@ export const ValidatorTable = React.memo(function ValidatorTable({
           </div>
         </div>
         <div className="rounded-md border">
-          <Table className="border-collapse border-spacing-0">
-            <TableHeader>
+          {/* Fixed layout, from each column's `size`: only the rows near the viewport are mounted,
+              and sized by their content the columns would shift as rows scroll in and out. The
+              sizes fit the widest content; the table never shrinks below them, so narrow screens
+              scroll it sideways. Each row has its own <tbody>: drop the bottom border of the last
+              one, which sits on the container's border */}
+          <Table
+            className="table-fixed border-collapse border-spacing-0 [&>tbody:last-child>tr:last-child]:border-0"
+            style={{ minWidth: table.getTotalSize() }}
+          >
+            <TableHeader ref={headerRef}>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => {
                     return (
-                      <TableHead key={header.id} className="first:px-0 first:w-12">
+                      <TableHead
+                        key={header.id}
+                        className={cn(
+                          'first:px-0',
+                          // Room for the name cell's `xl:max-w-[16rem]`, plus padding (the size
+                          // fits its narrower cap below xl)
+                          header.column.id === 'validator' && 'xl:!w-[17rem]',
+                        )}
+                        style={{ width: header.getSize() }}
+                      >
                         {header.isPlaceholder
                           ? null
                           : flexRender(header.column.columnDef.header, header.getContext())}
@@ -494,36 +526,136 @@ export const ValidatorTable = React.memo(function ValidatorTable({
                 </TableRow>
               ))}
             </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.length ? (
-                table
-                  .getRowModel()
-                  .rows.map((row) => (
-                    <ValidatorRow
-                      key={row.id}
-                      row={row}
-                      validator={row.original}
-                      expanded={row.getIsExpanded()}
-                      columns={columns}
-                      visibleColumns={visibleColumns}
-                      constraints={constraints}
-                      clockMinute={clockMinute}
-                    />
-                  ))
-              ) : (
+            {rows.length ? (
+              <VirtualRows
+                rows={rows}
+                headerRef={headerRef}
+                columns={columns}
+                visibleColumns={visibleColumns}
+                constraints={constraints}
+                clockMinute={clockMinute}
+              />
+            ) : (
+              <TableBody>
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={columns.length} className="h-24 text-center">
                     {isLoading ? 'Loading...' : 'No results'}
                   </TableCell>
                 </TableRow>
-              )}
-            </TableBody>
+              </TableBody>
+            )}
           </Table>
         </div>
       </div>
     </>
   )
 })
+
+/** A collapsed row's height, before it is measured */
+const ROW_HEIGHT_ESTIMATE = 53
+
+interface VirtualRowsProps {
+  rows: Row<Validator>[]
+  /** The table header: the rows start at its bottom edge */
+  headerRef: React.RefObject<HTMLTableSectionElement>
+  columns: ColumnDef<Validator>[]
+  visibleColumns: string
+  constraints: Constraints
+  clockMinute: number
+}
+
+/**
+ * The table body, rendering only the rows near the viewport. The page scrolls rather than the
+ * table, so this follows the window. A row and its details share one `<tbody>`, measured as one
+ * item, so an expanded row takes its real height. Kept apart from the table so that the re-renders
+ * scrolling causes stop here.
+ */
+function VirtualRows({
+  rows,
+  headerRef,
+  columns,
+  visibleColumns,
+  constraints,
+  clockMinute,
+}: VirtualRowsProps) {
+  const scrollMargin = useDocumentBottom(headerRef)
+  // Stable while the rows are, which lets the virtualizer keep its measurements between scrolls.
+  // Tolerates an index past the end: a deferred render can set new rows before they commit, while
+  // the old ones are still on screen being measured
+  const getItemKey = React.useCallback((index: number) => rows[index]?.id ?? index, [rows])
+  const virtualizer = useWindowVirtualizer({
+    count: rows.length,
+    estimateSize: () => ROW_HEIGHT_ESTIMATE,
+    overscan: 8,
+    getItemKey,
+    scrollMargin,
+  })
+
+  const items = virtualizer.getVirtualItems()
+  // Item offsets count from the top of the page; the total size counts from the first row
+  const paddingTop = items.length ? items[0].start - scrollMargin : 0
+  const paddingBottom = items.length
+    ? virtualizer.getTotalSize() - (items[items.length - 1].end - scrollMargin)
+    : 0
+  const colSpan = visibleColumns.split(',').length
+
+  return (
+    <>
+      {paddingTop > 0 && <SpacerBody height={paddingTop} colSpan={colSpan} />}
+      {items.map((item) => {
+        const row = rows[item.index]
+        return (
+          <tbody key={row.id} data-index={item.index} ref={virtualizer.measureElement}>
+            <ValidatorRow
+              row={row}
+              validator={row.original}
+              expanded={row.getIsExpanded()}
+              columns={columns}
+              visibleColumns={visibleColumns}
+              constraints={constraints}
+              clockMinute={clockMinute}
+            />
+          </tbody>
+        )
+      })}
+      {paddingBottom > 0 && <SpacerBody height={paddingBottom} colSpan={colSpan} />}
+    </>
+  )
+}
+
+/** Stands in for the rows scrolled out of view, so the page keeps its full height. */
+function SpacerBody({ height, colSpan }: { height: number; colSpan: number }) {
+  return (
+    <tbody aria-hidden="true">
+      <tr>
+        <td colSpan={colSpan} style={{ height, padding: 0 }} />
+      </tr>
+    </tbody>
+  )
+}
+
+/**
+ * The element's bottom edge, measured from the top of the page. It is re-measured when the app's
+ * root resizes, which is when the content above it (the chart, the stakes table) can have moved
+ * it. The root rather than `<body>`, which stops growing with the content if it gets a height.
+ */
+function useDocumentBottom(ref: React.RefObject<HTMLElement>): number {
+  const [bottom, setBottom] = React.useState(0)
+  React.useLayoutEffect(() => {
+    const measure = () => {
+      const element = ref.current
+      if (!element) return
+      const next = element.getBoundingClientRect().bottom + window.scrollY
+      setBottom((previous) => (Math.abs(previous - next) < 0.5 ? previous : next))
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(document.getElementById('app') ?? document.body)
+    return () => observer.disconnect()
+  }, [ref])
+  return bottom
+}
 
 interface ValidatorRowProps {
   row: Row<Validator>
