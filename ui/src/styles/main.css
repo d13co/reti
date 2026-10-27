@@ -61,6 +61,13 @@
   }
 }
 
+/* The time travel warp's fades in (see TimeTravel/Warp.tsx) */
+@keyframes warp-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
 @layer base {
   .link {
     @apply underline underline-offset-4 decoration-foreground/50 hover:decoration-2 hover:decoration-primary;
