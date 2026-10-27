@@ -16,7 +16,12 @@ import {
   linkPoolToNfd,
   requestSubscribeXGov,
 } from '@/api/contracts'
-import { mbrQueryOptions, validatorNodePoolAssignmentsQueryOptions } from '@/api/queries'
+import {
+  mbrQueryOptions,
+  nfdLookupQueryOptions,
+  nfdQueryOptions,
+  validatorNodePoolAssignmentsQueryOptions,
+} from '@/api/queries'
 import { AlgoDisplayAmount } from '@/components/AlgoDisplayAmount'
 import { DisplayAsset } from '@/components/DisplayAsset'
 import { NfdLookup } from '@/components/NfdLookup'
@@ -447,8 +452,8 @@ export function AddPoolModal({
         activeAddress,
       )
 
-      queryClient.setQueryData<Nfd>(['nfd-lookup', poolAddress, { view: 'thumbnail' }], nfdToLink)
-      queryClient.setQueryData<Nfd>(['nfd', $nfdToLink, { view: 'thumbnail' }], nfdToLink)
+      queryClient.setQueryData(nfdLookupQueryOptions(poolAddress).queryKey, nfdToLink)
+      queryClient.setQueryData(nfdQueryOptions($nfdToLink).queryKey, nfdToLink)
 
       toast.success(`Pool ${poolKey.poolId} successfully linked to ${$nfdToLink}!`, {
         id: toastId,

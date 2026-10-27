@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { linkPoolToNfd } from '@/api/contracts'
+import { nfdLookupQueryOptions } from '@/api/queries'
 import { NfdLookup } from '@/components/NfdLookup'
 import { Button } from '@/components/ui/button'
 import {
@@ -110,10 +111,7 @@ export function LinkPoolToNfdModal({
       })
 
       const poolAppAddress = algosdk.getApplicationAddress(poolAppId)
-      queryClient.setQueryData(
-        ['nfd-lookup', poolAppAddress.toString(), { view: 'thumbnail' }],
-        nfd,
-      )
+      queryClient.setQueryData(nfdLookupQueryOptions(poolAppAddress.toString()).queryKey, nfd)
 
       handleOpenChange(false)
     } catch (error) {

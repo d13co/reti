@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 import { useDebouncedCallback } from 'use-debounce'
 import { z } from 'zod'
 import { addValidator, fetchValidator } from '@/api/contracts'
-import { fetchNfd } from '@/api/nfd'
+import { fetchNfd, isNfdNotFoundError } from '@/api/nfd'
 import { AlgoSymbol } from '@/components/AlgoSymbol'
 import { AssetLookup } from '@/components/AssetLookup'
 import { InfoPopover } from '@/components/InfoPopover'
@@ -216,13 +216,11 @@ export function AddValidatorForm({ constraints }: AddValidatorFormProps) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       let message: string
-      if (isAxiosError(error) && error.response) {
-        if (error.response.status === 404) {
-          message = 'NFD app ID not found'
-        } else {
-          console.error(error)
-          message = 'Failed to fetch NFD'
-        }
+      if (isNfdNotFoundError(error)) {
+        message = 'NFD app ID not found'
+      } else if (isAxiosError(error) && error.response) {
+        console.error(error)
+        message = 'Failed to fetch NFD'
       } else {
         // Handle non-HTTP errors
         console.error(error)

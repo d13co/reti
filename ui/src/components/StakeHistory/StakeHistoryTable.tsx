@@ -30,7 +30,7 @@ import { cn } from '@/utils/ui'
 /** What the table needs of a validator to name it. */
 export interface HistoryValidator {
   id: number
-  config: { nfdForInfo: bigint }
+  config: { nfdForInfo: bigint; owner?: string }
 }
 
 interface StakeHistoryTableProps {
@@ -209,14 +209,19 @@ function ValidatorName({
   validatorId: number
   validators?: HistoryValidator[]
 }) {
-  const nfdAppId = validators?.find((v) => v.id === validatorId)?.config.nfdForInfo ?? 0n
+  const config = validators?.find((v) => v.id === validatorId)?.config
+  const nfdAppId = config?.nfdForInfo ?? 0n
   return (
     <Link
       to="/validators/$validatorId"
       params={{ validatorId: String(validatorId) }}
       className="link underline-offset-4 whitespace-nowrap"
     >
-      {nfdAppId > 0n ? <NfdDisplay nameOrId={nfdAppId} truncate /> : `Validator ${validatorId}`}
+      {nfdAppId > 0n ? (
+        <NfdDisplay nameOrId={nfdAppId} address={config?.owner} truncate />
+      ) : (
+        `Validator ${validatorId}`
+      )}
     </Link>
   )
 }

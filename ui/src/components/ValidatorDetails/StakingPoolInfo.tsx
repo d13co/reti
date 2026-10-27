@@ -3,8 +3,7 @@ import { ProgressBar } from '@tremor/react'
 import { Copy } from 'lucide-react'
 import { nfdLookupQueryOptions, validatorPoolStatesQueryOptions } from '@/api/queries'
 import { AlgoDisplayAmount } from '@/components/AlgoDisplayAmount'
-import { Loading } from '@/components/Loading'
-import { NfdDisplay } from '@/components/NfdDisplay'
+import { NfdDisplay, NfdLoadingDisplay } from '@/components/NfdDisplay'
 import { Button } from '@/components/ui/button'
 import { Skeleton, SkeletonText } from '@/components/ui/skeleton'
 import { Constraints } from '@/contracts/ValidatorRegistryClient'
@@ -34,14 +33,19 @@ export function StakingPoolInfo({
   poolName,
   isOwner,
 }: StakingPoolInfoProps) {
+  const { round } = useAtRound()
   const poolNfdQuery = useQuery(
-    nfdLookupQueryOptions(poolInfo?.poolAddress || null, { view: 'thumbnail' }, { cache: false }),
+    nfdLookupQueryOptions(
+      poolInfo?.poolAddress || null,
+      { view: 'thumbnail' },
+      { cache: false },
+      round,
+    ),
   )
 
   // Not stored in the validator box. Comes from the same read of this validator's pools' global
   // state that its metrics use (`useValidator`), so getting here is normally a cache hit.
   const queryClient = useQueryClient()
-  const { round } = useAtRound()
   const poolGlobalStatesQuery = useQuery(
     keepAcrossRounds(
       validatorPoolStatesQueryOptions(queryClient, validator.id, validator.pools, round),
@@ -84,7 +88,11 @@ export function StakingPoolInfo({
     }
 
     if (poolNfdQuery.isLoading) {
-      return <Loading size="sm" className="mx-8" inline />
+      return (
+        <div className="truncate">
+          <NfdLoadingDisplay address={poolInfo.poolAddress} truncate />
+        </div>
+      )
     }
 
     if (poolNfdQuery.error) {

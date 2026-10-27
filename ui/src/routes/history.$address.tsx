@@ -59,7 +59,11 @@ const LOADING_ROWS = { first: 6, more: 2 }
 function StakingHistory() {
   const { address } = Route.useParams()
   const valid = algosdk.isValidAddress(address)
-  const nfdQuery = useQuery({ ...nfdLookupQueryOptions(address), enabled: valid })
+  const { round } = useAtRound()
+  const nfdQuery = useQuery({
+    ...nfdLookupQueryOptions(address, undefined, undefined, round),
+    enabled: valid,
+  })
   const description = nfdQuery.data?.name ?? address
 
   return (
@@ -109,7 +113,7 @@ function HistoryBody({ address }: { address: string }) {
   const validatorIds = [...new Set((pools ?? []).map((pool) => Number(pool.validatorId)))].sort(
     (a, b) => a - b,
   )
-  const validatorNames = useValidatorNames(validatorIds, validatorsQuery.data)
+  const validatorNames = useValidatorNames(validatorIds, validatorsQuery.data, round)
 
   if (supported === false) {
     return (
@@ -193,13 +197,14 @@ function HistoryBody({ address }: { address: string }) {
 function useValidatorNames(
   validatorIds: number[],
   validators?: { id: number; config: { nfdForInfo: bigint } }[],
+  round?: bigint,
 ): Map<number, string> {
   const nfdAppIds = validatorIds.map(
     (id) => validators?.find((v) => v.id === id)?.config.nfdForInfo ?? 0n,
   )
   const nfdQueries = useQueries({
     queries: nfdAppIds.map((nfdAppId) => ({
-      ...nfdQueryOptions(nfdAppId),
+      ...nfdQueryOptions(nfdAppId, undefined, undefined, round),
       enabled: nfdAppId > 0n,
       // A slot never shows another validator's name while its own loads
       placeholderData: undefined,

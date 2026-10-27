@@ -101,8 +101,15 @@ export function useStakersChartData({
     return Array.from(addresses)
   }, [allStakedInfo, selectedPool])
 
+  // As of the round where the read node supports it; the round last shown in full stands in
   const nfdQueries = useQueries({
-    queries: stakerAddresses.map((address) => nfdLookupQueryOptions(address)),
+    queries: stakerAddresses.map((address) => ({
+      ...nfdLookupQueryOptions(address, undefined, undefined, round),
+      placeholderData: () =>
+        queryClient.getQueryData(
+          nfdLookupQueryOptions(address, undefined, undefined, shownRound.current).queryKey,
+        ),
+    })),
   })
 
   const stakersChartData = React.useMemo(() => {

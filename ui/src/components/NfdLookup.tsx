@@ -3,7 +3,7 @@ import { ArrowUpRight, Check, TriangleAlert } from 'lucide-react'
 import * as React from 'react'
 import { FieldPath, FieldValues, UseFormReturn } from 'react-hook-form'
 import { useDebouncedCallback } from 'use-debounce'
-import { fetchNfd } from '@/api/nfd'
+import { fetchNfd, isNfdNotFoundError } from '@/api/nfd'
 import { Button } from '@/components/ui/button'
 import { FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
@@ -73,14 +73,12 @@ export function NfdLookup<
       setNfd(nfdRecord)
     } catch (error: unknown) {
       let message: string
-      if (error instanceof AxiosError && error.response) {
+      if (isNfdNotFoundError(error)) {
+        message = ERROR_NOT_FOUND
+      } else if (error instanceof AxiosError && error.response) {
         // Handle HTTP errors
-        if (error.response.status === 404) {
-          message = ERROR_NOT_FOUND
-        } else {
-          console.error(error)
-          message = ERROR_FAILED
-        }
+        console.error(error)
+        message = ERROR_FAILED
       } else if (error instanceof Error) {
         // Handle non-HTTP errors
         console.error(error)

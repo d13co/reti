@@ -2,7 +2,10 @@ import { useQuery } from '@tanstack/react-query'
 import * as React from 'react'
 import { nfdQueryOptions, ipfsUrlQueryOptions } from '@/api/queries'
 import { Nfd } from '@/interfaces/nfd'
+import { Loading } from '@/components/Loading'
 import { Tooltip } from '@/components/Tooltip'
+import { useAtRound } from '@/hooks/useAtRound'
+import { ellipseAddressJsx } from '@/utils/ellipseAddress'
 import { getNfdAvatarUrl, getNfdProfileUrl } from '@/utils/nfd'
 import { cn } from '@/utils/ui'
 
@@ -99,6 +102,45 @@ const NfdDisplayBase = React.memo(
   },
 )
 
+interface NfdLoadingDisplayProps {
+  /** The address the NFD is for, shown until it loads; without one, "Loading…" */
+  address?: string
+  className?: string
+  avatarClassName?: string
+  truncate?: boolean
+  avatarOnly?: boolean
+}
+
+/** An NFD while it loads: a spinner where its avatar goes, and the address it is for. */
+function NfdLoadingDisplay({
+  address,
+  className,
+  avatarClassName,
+  truncate = false,
+  avatarOnly = false,
+}: NfdLoadingDisplayProps) {
+  const avatar = (
+    <div className={cn('grid h-6 w-6 place-items-center rounded-full bg-muted', avatarClassName)}>
+      <Loading size="sm" inline className="h-2/3 w-2/3" />
+    </div>
+  )
+
+  return (
+    <div className={className} role="status" aria-label="Loading NFD">
+      {avatarOnly ? (
+        avatar
+      ) : (
+        <div className="flex items-center gap-x-1.5 text-sm">
+          <div className="flex-shrink-0">{avatar}</div>
+          <div className={cn('font-mono', { truncate })}>
+            {address ? ellipseAddressJsx(address) : 'Loading…'}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 type NfdDisplayProps = (
   | {
       nfd: Nfd
@@ -115,21 +157,37 @@ type NfdDisplayProps = (
   truncate?: boolean
   tooltip?: boolean
   avatarOnly?: boolean
+  /** The address to show while a `nameOrId` NFD loads */
+  address?: string
 }
 
 const NfdDisplay = React.memo(function NfdDisplay({
   nfd: nfdProp,
   nameOrId,
+  address,
   ...props
 }: NfdDisplayProps) {
-  const { data: nfdData, isLoading, error } = useQuery(nfdQueryOptions(nameOrId || ''))
+  const { round } = useAtRound()
+  const {
+    data: nfdData,
+    isLoading,
+    error,
+  } = useQuery(nfdQueryOptions(nameOrId || '', undefined, undefined, round))
 
   if (nfdProp) {
     return <NfdDisplayBase nfd={nfdProp} {...props} />
   }
 
   if (isLoading) {
-    return <span className="text-sm">Loading...</span>
+    return (
+      <NfdLoadingDisplay
+        address={address}
+        className={props.className}
+        avatarClassName={props.avatarClassName}
+        truncate={props.truncate}
+        avatarOnly={props.avatarOnly}
+      />
+    )
   }
 
   if (error || !nfdData) {
@@ -139,4 +197,4 @@ const NfdDisplay = React.memo(function NfdDisplay({
   return <NfdDisplayBase nfd={nfdData} {...props} />
 })
 
-export { NfdDisplay }
+export { NfdDisplay, NfdLoadingDisplay }

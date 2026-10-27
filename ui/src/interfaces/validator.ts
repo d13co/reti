@@ -58,6 +58,8 @@ export type Validator = {
   rewardToken?: algosdk.modelsv2.Asset
   gatingAssets?: algosdk.modelsv2.Asset[]
   nfd?: Nfd
+  /** Its NFD (`config.nfdForInfo`) is still loading */
+  nfdLoading?: boolean
   apy?: number
   extDeposits?: number
   perf?: number

@@ -131,7 +131,7 @@ export function StakingTable({
               className="link underline-offset-4"
             >
               {nfdAppId > 0 ? (
-                <NfdDisplay nameOrId={nfdAppId} />
+                <NfdDisplay nameOrId={nfdAppId} address={validator.config.owner} />
               ) : (
                 <span className="font-mono whitespace-nowrap">
                   {ellipseAddressJsx(validator.config.owner)}

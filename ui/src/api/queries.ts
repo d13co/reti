@@ -19,7 +19,7 @@ import {
   fetchValidatorState,
   processPoolData,
 } from '@/api/contracts'
-import { fetchNfd, fetchNfdReverseLookup } from '@/api/nfd'
+import { fetchNfd, fetchNfdReverseLookup, nfdQueriesSupported } from '@/api/nfd'
 import { fetchNodely24hPerf } from '@/api/nodely'
 import { latestReadRound, timeTravelSupportQueryOptions } from '@/api/reti'
 import { Nfd, NfdGetLookupParams, NfdGetNFDParams } from '@/interfaces/nfd'
@@ -483,12 +483,25 @@ export const stakesQueryOptions = (staker: string | null, round?: bigint) =>
 ////////////////////////////////////////////////////////////
 
 /**
+ * Whether NFDs are read on chain through `nfd-ghost-sdk`, at any round, rather than through the
+ * NFD REST API, which only knows the present. Asked once per session.
+ */
+export const nfdSupportQueryOptions = queryOptions({
+  queryKey: ['nfd-support'],
+  queryFn: () => nfdQueriesSupported(),
+  staleTime: Infinity,
+  gcTime: Infinity,
+})
+
+/**
  * NFD records are near-static and the API is rate limited, so they are cached hard: an hour
  * before a refetch is even considered, a day before the entry is dropped. These keys are also
  * persisted to IndexedDB (see `@/lib/queryPersister`), and `axiosNfdApi` keeps its own
  * persisted HTTP cache underneath, so a reload paints names and avatars without a request.
  *
- * NFDs only answer "now", so they carry no round: a time-travelling page shows today's names.
+ * Keys end with the round, like every protocol read: on a read node that supports it, NFDs are
+ * read as of that round (see `@/api/nfd`). Elsewhere a pinned read gets today's NFD from the
+ * API, which its HTTP cache answers for every round after the first.
  */
 const NFD_STALE_TIME = 1000 * 60 * 60 // 1 hour
 
@@ -496,8 +509,9 @@ const NFD_STALE_TIME = 1000 * 60 * 60 // 1 hour
 const NFD_VOLATILE_STALE_TIME = 1000 * 60 * 5 // 5 minutes
 
 /**
- * Retries are owned by `axiosNfdApi`, which backs off exponentially on 429s. Layering the
- * react-query retry on top would multiply out to dozens of attempts per record.
+ * Retries are owned by `axiosNfdApi`, which backs off exponentially on 429s, and by the SDK,
+ * which backs off on a busy node. Layering the react-query retry on top would multiply out to
+ * dozens of attempts per record.
  */
 const nfdRetry = false
 
@@ -505,37 +519,51 @@ export const nfdQueryOptions = (
   nameOrId: string | number | bigint,
   params: NfdGetNFDParams = { view: 'brief' },
   options: CacheRequestConfig = {},
+  round?: bigint,
 ) =>
   queryOptions<Nfd>({
-    queryKey: ['nfd', nameOrId.toString(), params],
-    queryFn: () => fetchNfd(nameOrId.toString(), params, options),
+    queryKey: ['nfd', nameOrId.toString(), params, roundKey(round)],
+    queryFn: (context) =>
+      fetchNfd(nameOrId.toString(), params, options, {
+        round,
+        signal: pinnedSignal(round, context),
+      }),
     enabled: !!nameOrId,
     placeholderData: keepPreviousData,
-    staleTime: NFD_STALE_TIME,
-    gcTime: PERSISTED_GC_TIME,
     retry: nfdRetry,
-    refetchOnWindowFocus: false,
-    // Left at the default: a restored record older than an hour is refreshed, and the axios
-    // cache underneath usually answers that without a request anyway.
+    ...roundQueryDefaults(round, {
+      staleTime: NFD_STALE_TIME,
+      gcTime: PERSISTED_GC_TIME,
+      refetchOnWindowFocus: false,
+      // Left at the default: a restored record older than an hour is refreshed, and the axios
+      // cache underneath usually answers that without a request anyway.
+    }),
   })
 
 export const nfdLookupQueryOptions = (
   address: string | null,
   params: Omit<NfdGetLookupParams, 'address'> = { view: 'thumbnail' },
   options: CacheRequestConfig = {},
+  round?: bigint,
 ) => {
   // Reverse lookups follow whichever address currently holds the NFD, and a caller passing
   // `cache: false` has said it cares about that. Don't cache those hard behind its back.
   const isNearStatic = options.cache !== false
 
-  return queryOptions<Nfd | null, AxiosError>({
-    queryKey: ['nfd-lookup', address, params],
-    queryFn: () => fetchNfdReverseLookup(String(address), params, options),
+  return queryOptions<Nfd | null>({
+    queryKey: ['nfd-lookup', address, params, roundKey(round)],
+    queryFn: (context) =>
+      fetchNfdReverseLookup(String(address), params, options, {
+        round,
+        signal: pinnedSignal(round, context),
+      }),
     enabled: !!address,
-    staleTime: isNearStatic ? NFD_STALE_TIME : NFD_VOLATILE_STALE_TIME,
-    gcTime: PERSISTED_GC_TIME,
     retry: nfdRetry,
-    refetchOnWindowFocus: false,
+    ...roundQueryDefaults(round, {
+      staleTime: isNearStatic ? NFD_STALE_TIME : NFD_VOLATILE_STALE_TIME,
+      gcTime: PERSISTED_GC_TIME,
+      refetchOnWindowFocus: false,
+    }),
   })
 }
 

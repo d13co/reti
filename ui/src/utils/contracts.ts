@@ -2,7 +2,7 @@ import { QueryClient } from '@tanstack/react-query'
 import algosdk from 'algosdk'
 import type { Validator as GhostValidator } from 'reti-ghost-sdk'
 import { fetchAccountInformation } from '@/api/algod'
-import { fetchNfd, fetchNfdSearch } from '@/api/nfd'
+import { fetchNfdGatingAddresses, fetchNfdGatingSegment } from '@/api/nfd'
 import { sdkAt } from '@/api/reti'
 import { GatingType } from '@/constants/gating'
 import { Indicator } from '@/constants/indicator'
@@ -12,7 +12,7 @@ import {
   ValidatorConfig,
   ValidatorCurState,
 } from '@/contracts/ValidatorRegistryClient'
-import { Nfd, NfdSearchV2Params } from '@/interfaces/nfd'
+import { Nfd } from '@/interfaces/nfd'
 import { StakerValidatorData } from '@/interfaces/staking'
 import {
   LocalPoolInfo,
@@ -414,8 +414,7 @@ export async function fetchValueToVerify(
 
   if (entryGatingType === GatingType.CreatorNfd) {
     const nfdAppId = entryGatingAssets[0]
-    const nfd = await fetchNfd(nfdAppId, { view: 'tiny' })
-    const addresses = nfd.caAlgo || []
+    const addresses = await fetchNfdGatingAddresses(nfdAppId)
 
     const promises = addresses.map((address) => fetchAccountInformation(address))
     const accountsInfo = await Promise.all(promises)
@@ -432,18 +431,7 @@ export async function fetchValueToVerify(
     const parentAppID = entryGatingAssets[0]
 
     try {
-      const params: NfdSearchV2Params = {
-        parentAppID,
-        state: ['owned'],
-        owner: activeAddress,
-        view: 'brief',
-        limit: 1,
-      }
-      const result = await fetchNfdSearch(params, { cache: false })
-      if (result.nfds.length === 0) {
-        return 0n
-      }
-      return BigInt(result.nfds[0].appID!)
+      return await fetchNfdGatingSegment(activeAddress, parentAppID)
     } catch (error) {
       console.error('Error fetching data:', error)
       throw error
@@ -657,7 +645,7 @@ export function setValidatorQueriesData(queryClient: QueryClient, data: Validato
   }
   if (data.nfd) {
     queryClient.setQueryData<Nfd>(
-      ['nfd', data.config.nfdForInfo.toString(), { view: 'full' }],
+      ['nfd', data.config.nfdForInfo.toString(), { view: 'full' }, latest],
       data.nfd,
     )
   }

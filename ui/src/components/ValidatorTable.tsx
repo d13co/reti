@@ -49,6 +49,7 @@ import {
 } from '@/components/ui/table'
 import { UnstakeModal } from '@/components/UnstakeModal'
 import { ValidatorInfoRow } from '@/components/ValidatorInfoRow'
+import { NfdLoadingDisplay } from '@/components/NfdDisplay'
 import { ValidatorNfdDisplay } from '@/components/ValidatorNfdDisplay'
 import { ValidatorStatus } from '@/components/ValidatorStatus'
 import { Constraints } from '@/contracts/ValidatorRegistryClient'
@@ -243,7 +244,11 @@ export function ValidatorTable({
                   className="link underline-offset-4 whitespace-nowrap font-mono"
                   preload="intent"
                 >
-                  {ellipseAddressJsx(validator.config.owner)}
+                  {validator.nfdLoading ? (
+                    <NfdLoadingDisplay address={validator.config.owner} />
+                  ) : (
+                    ellipseAddressJsx(validator.config.owner)
+                  )}
                 </Link>
               )}
             </div>

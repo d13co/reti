@@ -3,6 +3,7 @@ import { useParams } from '@tanstack/react-router'
 import { ChevronLeft, ChevronRight, History } from 'lucide-react'
 import * as React from 'react'
 import { adjacentChangesQueryOptions, latestRoundQueryOptions, TimelineTarget } from '@/api/history'
+import { nfdSupportQueryOptions } from '@/api/queries'
 import { roundTimestampQueryOptions, timeTravelSupportQueryOptions } from '@/api/reti'
 import { Tooltip } from '@/components/Tooltip'
 import { Button } from '@/components/ui/button'
@@ -30,6 +31,7 @@ export function TimeTravelBanner() {
   const supportQuery = useQuery({ ...timeTravelSupportQueryOptions, enabled: pinned })
   const roundTimeQuery = useQuery(roundTimestampQueryOptions(round))
   const latestRoundQuery = useQuery({ ...latestRoundQueryOptions, enabled: pinned })
+  const nfdSupportQuery = useQuery({ ...nfdSupportQueryOptions, enabled: pinned })
 
   // Step through the changes of the validator on screen, else of the registry as a whole
   const target: TimelineTarget = React.useMemo(
@@ -86,8 +88,14 @@ export function TimeTravelBanner() {
               <span>
                 <span className="hidden sm:inline"> · </span>
                 {/* Each sentence stays whole, so a narrow phone breaks between them */}
-                <span className="whitespace-nowrap">Read only.</span>{' '}
-                <span className="whitespace-nowrap">NFDs are current.</span>
+                <span className="whitespace-nowrap">Read only.</span>
+                {/* Only where NFDs can't be read as of the round (see `@/api/nfd`) */}
+                {nfdSupportQuery.data === false && (
+                  <>
+                    {' '}
+                    <span className="whitespace-nowrap">NFDs are current.</span>
+                  </>
+                )}
               </span>
             </p>
           </>

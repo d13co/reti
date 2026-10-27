@@ -12,6 +12,7 @@ import {
   allValidatorsQueryOptions,
   assetQueryOptions,
   nfdQueryOptions,
+  nfdSupportQueryOptions,
   nodelyApyQueryOptions,
   nodelyPerfMetricsQueryOptions,
   hasLongEpoch,
@@ -102,14 +103,23 @@ export function useValidators(): {
     [extrasReady, gatingAssetIds, round, queryClient],
   )
 
+  // Read on chain through the SDK, every validator's NFD shares one request, so they all go at
+  // once; through the rate limited REST API they are metered. Waits for the answer to that.
+  const nfdSupportQuery = useQuery(nfdSupportQueryOptions)
   const nfdQueryOptionsList = React.useMemo(
-    () => nfdAppIds.map((id) => nfdQueryOptions(id, { view: 'full' })),
-    [nfdAppIds],
+    () =>
+      nfdSupportQuery.isPending
+        ? []
+        : nfdAppIds.map((id) => nfdQueryOptions(id, { view: 'full' }, {}, round)),
+    [nfdAppIds, nfdSupportQuery.isPending, round],
   )
 
   const rewardTokenQueries = useQueuedQueries(rewardTokenQueryOptions, { host: 'algod' })
   const gatingAssetQueries = useQueuedQueries(gatingAssetQueryOptions, { host: 'algod' })
-  const nfdQueries = useQueuedQueries(nfdQueryOptionsList, { host: 'nfd' })
+  const nfdQueries = useQueuedQueries(nfdQueryOptionsList, {
+    host: 'nfd',
+    metered: nfdSupportQuery.data !== true,
+  })
 
   // Every pool's lastPayout in one request, shared by all the metrics queries below. After the
   // connected account's own stakes: the metrics and APY columns that wait on it come second.
@@ -266,6 +276,9 @@ export function useValidators(): {
         )
         if (nfd) {
           baseValidator.nfd = nfd
+        } else {
+          const index = nfdAppIds.indexOf(Number(baseValidator.config.nfdForInfo))
+          baseValidator.nfdLoading = nfdSupportQuery.isPending || !!nfdQueries.pending[index]
         }
       }
       baseValidator.perf = pinned
@@ -291,6 +304,9 @@ export function useValidators(): {
     rewardTokenQueries.data,
     gatingAssetQueries.data,
     nfdQueries.data,
+    nfdQueries.pending,
+    nfdAppIds,
+    nfdSupportQuery.isPending,
     nodelyPerfQuery.data,
     metrics,
     queuedNodelyApyQueries.data,

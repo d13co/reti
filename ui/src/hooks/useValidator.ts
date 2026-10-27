@@ -149,10 +149,10 @@ export function useValidator(validatorId: number): ValidatorView {
     combine: combineAssets,
   })
 
-  // NFD query: names only answer "now", so this doesn't change with the round
+  // NFD query, as of the round where the read node supports it (see `@/api/nfd`)
   const nfdForInfo = Number(configQuery.data?.nfdForInfo ?? 0)
   const nfdQuery = useQuery({
-    ...nfdQueryOptions(nfdForInfo, { view: 'full' }),
+    ...nfdQueryOptions(nfdForInfo, { view: 'full' }, {}, round),
     enabled: nfdForInfo > 0,
   })
 

@@ -14,6 +14,8 @@ const DEFAULT_BATCH_INTERVAL = 1000
 function combineResults<TData, TError>(results: UseQueryResult<TData, TError>[]) {
   return {
     data: results.map((r) => r.data),
+    // Not released yet, or in flight with no data: positionally aligned like `data`
+    pending: results.map((r) => r.isPending),
     isFetching: results.some((r) => r.isFetching),
     isLoading: results.some((r) => r.isLoading),
     isError: results.some((r) => r.isError),
@@ -34,6 +36,11 @@ export interface UseQueuedQueriesOptions {
   /** Ceiling for this call site, applied on top of whatever the host has learned. */
   maxBatchSize?: number
   batchInterval?: number
+  /**
+   * False releases every query at once, for reads the upstream batches itself (NFDs read
+   * through the SDK, which shares one request between reads made together). Default true.
+   */
+  metered?: boolean
 }
 
 /**
@@ -57,14 +64,21 @@ export function useQueuedQueries<
     host,
     maxBatchSize = DEFAULT_BATCH_SIZE,
     batchInterval = DEFAULT_BATCH_INTERVAL,
+    metered = true,
   }: UseQueuedQueriesOptions = {},
 ) {
   const queryClient = useQueryClient()
-  const controller = React.useMemo(() => (host ? getBatchSizeController(host) : null), [host])
+  const controller = React.useMemo(
+    () => (host && metered ? getBatchSizeController(host) : null),
+    [host, metered],
+  )
 
   const nextBatchSize = React.useCallback(
-    () => Math.max(1, Math.min(controller?.current ?? DEFAULT_BATCH_SIZE, maxBatchSize)),
-    [controller, maxBatchSize],
+    () =>
+      metered
+        ? Math.max(1, Math.min(controller?.current ?? DEFAULT_BATCH_SIZE, maxBatchSize))
+        : Number.POSITIVE_INFINITY,
+    [controller, maxBatchSize, metered],
   )
 
   // Only work that will actually hit the network is metered out; anything already holding
