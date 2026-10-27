@@ -5,7 +5,6 @@ import { latestRoundQueryOptions } from '@/api/history'
 import { roundTimestampQueryOptions, timeReader, timeTravelSupportQueryOptions } from '@/api/reti'
 import { roundAsOf, roundAtTime } from '@/api/roundTimes'
 import { traceQuery } from '@/api/trace'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import { Input } from '@/components/ui/input'
@@ -149,19 +148,7 @@ export function TimeTravelControl({ className }: TimeTravelControlProps) {
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="end">
         <div className="p-3 pb-0">
-          <div className="flex items-center justify-between gap-x-2">
-            <p className="text-sm font-medium">View Réti as of</p>
-            {support.queries && (
-              <Badge
-                variant="secondary"
-                className="px-1.5"
-                title="Reads go through the node's read-only queries (POST /v2/query) instead of simulate"
-                data-test-id="time-travel-queries"
-              >
-                queries
-              </Badge>
-            )}
-          </div>
+          <p className="text-sm font-medium">View Réti as of</p>
           <p className="text-xs text-muted-foreground">Every page shows that moment, read-only.</p>
         </div>
         <Calendar
