@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { notifyManager, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import {
   NetworkConfigBuilder,
@@ -17,6 +17,7 @@ import { SharedTooltipProvider } from '@/components/Tooltip'
 import { Toaster } from '@/components/ui/sonner'
 import { WalletShortcutHandler } from '@/components/WalletShortcutHandler'
 import { WALLETCONNECT_PROJECT_ID } from '@/constants/env'
+import { createCoalescingScheduler } from '@/lib/coalescingScheduler'
 import { hydrateQueryCache } from '@/lib/queryPersister'
 import { ThemeProvider } from '@/providers/ThemeProvider'
 import { routeTree } from '@/routeTree.gen'
@@ -88,6 +89,10 @@ const walletManager = new WalletManager({
     resetNetwork: true,
   },
 })
+
+// Query updates that land close together reach React together, as one render rather than one
+// each (see createCoalescingScheduler)
+notifyManager.setScheduler(createCoalescingScheduler())
 
 // Tanstack Query client instance
 const queryClient = new QueryClient({
