@@ -4,7 +4,7 @@ import { JSX } from 'react/jsx-runtime'
 const navigation = [
   {
     name: 'GitHub',
-    href: 'https://github.com/algorandfoundation/reti',
+    href: 'https://github.com/d13co/reti',
     icon: (props: JSX.IntrinsicAttributes & SVGProps<SVGSVGElement>) => (
       <svg fill="currentColor" viewBox="0 0 24 24" {...props}>
         <path

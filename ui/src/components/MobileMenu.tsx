@@ -88,7 +88,7 @@ export function MobileMenu() {
 
           <SheetClose asChild>
             <a
-              href="https://github.com/algorandfoundation/reti"
+              href="https://github.com/d13co/reti"
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
