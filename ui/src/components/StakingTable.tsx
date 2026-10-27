@@ -7,6 +7,7 @@ import {
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
+  Row,
   SortingState,
   useReactTable,
   VisibilityState,
@@ -43,6 +44,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -141,6 +143,14 @@ export function StakingTable({
           </div>
         )
       },
+      footer: ({ table }) => (
+        <span className="whitespace-nowrap">
+          Total{' '}
+          <span className="font-normal text-muted-foreground">
+            ({table.getRowModel().rows.length} validators)
+          </span>
+        </span>
+      ),
     },
     {
       accessorKey: 'balance',
@@ -153,6 +163,14 @@ export function StakingTable({
           className="font-mono"
         />
       ),
+      footer: ({ table }) => (
+        <AlgoDisplayAmount
+          amount={sumOf(table.getRowModel().rows, 'balance')}
+          microalgos
+          mutedRemainder
+          className="font-mono"
+        />
+      ),
     },
     {
       accessorKey: 'totalRewarded',
@@ -160,6 +178,14 @@ export function StakingTable({
       cell: ({ row }) => (
         <AlgoDisplayAmount
           amount={row.original.totalRewarded}
+          microalgos
+          mutedRemainder
+          className="font-mono"
+        />
+      ),
+      footer: ({ table }) => (
+        <AlgoDisplayAmount
+          amount={sumOf(table.getRowModel().rows, 'totalRewarded')}
           microalgos
           mutedRemainder
           className="font-mono"
@@ -387,6 +413,22 @@ export function StakingTable({
                   </TableRow>
                 )}
               </TableBody>
+              {/* A total only adds anything over two or more stakes */}
+              {table.getRowModel().rows.length > 1 && (
+                <TableFooter>
+                  {table.getFooterGroups().map((footerGroup) => (
+                    <TableRow key={footerGroup.id} className="hover:bg-transparent">
+                      {footerGroup.headers.map((header) => (
+                        <TableCell key={header.id} className={cn('first:px-4')}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.footer, header.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableFooter>
+              )}
             </Table>
           </div>
         )}
@@ -405,4 +447,9 @@ export function StakingTable({
       />
     </>
   )
+}
+
+/** A bigint column's total over the rows shown */
+function sumOf(rows: Row<StakerValidatorData>[], key: 'balance' | 'totalRewarded'): bigint {
+  return rows.reduce((total, row) => total + row.original[key], 0n)
 }
