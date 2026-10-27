@@ -24,9 +24,12 @@
     --input: 240 5.9% 90%;
     --ring: 346.8 77.2% 49.8%;
     --radius: 0.5rem;
+    /* Native scrollbars and form controls follow the theme */
+    color-scheme: light;
   }
 
   .dark {
+    color-scheme: dark;
     --background: 20 14.3% 4.1%;
     --foreground: 0 0% 95%;
     --card: 24 9.8% 10%;
