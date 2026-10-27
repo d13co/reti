@@ -62,17 +62,31 @@ interface MetricChartProps {
 }
 
 /**
- * One measure over time. Clicking anywhere on the chart picks the point under the crosshair (the
- * one its tooltip shows), not just the small dot Tremor makes clickable.
+ * The point a click or tap on the chart lands nearest to, or undefined off the plot (over the axes).
+ * Read from where it lands rather than from the tooltip, which a tap may not have shown yet.
+ */
+function pointAt<T>(chart: HTMLElement, clientX: number, clientY: number, data: T[]) {
+  // The plot, and the area's ends: the first and last points, evenly spaced between
+  const plot = chart.querySelector('.recharts-cartesian-grid')?.getBoundingClientRect()
+  const area = chart.querySelector('.recharts-area-area')?.getBoundingClientRect()
+  if (!plot || !area || data.length === 0) return undefined
+  if (clientX < plot.left || clientX > plot.right || clientY < plot.top || clientY > plot.bottom) {
+    return undefined
+  }
+  const step = data.length > 1 ? area.width / (data.length - 1) : 1
+  const index = Math.round((clientX - area.left) / step)
+  return data[Math.min(Math.max(index, 0), data.length - 1)]
+}
+
+/**
+ * One measure over time. Clicking or tapping anywhere on the plot, its dot included, picks the
+ * point nearest to it (the one its tooltip shows).
  */
 function MetricChart({ data, metric, onPick }: MetricChartProps) {
-  const hovered = React.useRef<string>()
-
   const Tooltip = React.useCallback(
     ({ payload, active }: CustomTooltipProps) => {
       const point = payload?.[0]?.payload as ChartPoint | undefined
       if (!active || !point) return null
-      hovered.current = point.round
       return (
         <div className="rounded-md border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md">
           <p className="font-semibold tabular-nums">{metric.format(point[metric.key])}</p>
@@ -94,8 +108,11 @@ function MetricChart({ data, metric, onPick }: MetricChartProps) {
       </p>
       <div
         className="cursor-pointer"
-        onMouseLeave={() => (hovered.current = undefined)}
-        onClick={() => hovered.current && onPick(BigInt(hovered.current))}
+        // Capture: Tremor's dot under the cursor stops its clicks from bubbling
+        onClickCapture={(event) => {
+          const point = pointAt(event.currentTarget, event.clientX, event.clientY, data)
+          if (point) onPick(BigInt(point.round))
+        }}
       >
         <AreaChart
           className="mt-2 h-40"
