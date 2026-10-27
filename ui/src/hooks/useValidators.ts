@@ -5,9 +5,7 @@ import {
   useSuspenseQuery,
   UseQueryResult,
 } from '@tanstack/react-query'
-import algosdk from 'algosdk'
 import * as React from 'react'
-import { createBaseValidator } from '@/api/contracts'
 import {
   allValidatorsQueryOptions,
   assetQueryOptions,
@@ -26,7 +24,7 @@ import { useQueuedQueries } from '@/hooks/useQueuedQueries'
 import { useExtrasReady } from '@/hooks/useExtrasReady'
 import { useOwnStakesFirst } from '@/hooks/useOwnStakesFirst'
 import { Validator } from '@/interfaces/validator'
-import { findValidatorPerf } from '@/utils/nodely'
+import { AssembledValidators, assembleValidators, NO_VALIDATORS } from '@/utils/assembleValidators'
 
 /**
  * Dedupes and sorts a list of ids, returning a referentially stable array while the
@@ -238,67 +236,30 @@ export function useValidators(): {
     [realisedApyTargets, queuedRealisedApyQueries.data],
   )
 
-  // Combine all data synchronously
+  // The last build, so the next one can keep the objects of validators nothing changed for
+  const builtRef = React.useRef<AssembledValidators>(NO_VALIDATORS)
+
   const validators = React.useMemo(() => {
-    const result: Validator[] = []
-
-    for (let i = 0; i < validatorData.length; i++) {
-      const { id, config, state, pools, nodePoolAssignment } = validatorData[i]
-
-      // Create base validator
-      const baseValidator = createBaseValidator({
-        id,
-        config,
-        state,
-        pools,
-        nodePoolAssignment,
-      })
-
-      // Add enrichment data if available
-      if (baseValidator.config.rewardTokenId > 0) {
-        const rewardToken = rewardTokenQueries.data.find(
-          (asset) => asset?.index === baseValidator.config.rewardTokenId,
-        )
-        if (rewardToken) {
-          baseValidator.rewardToken = rewardToken
-        }
-      }
-
-      if (baseValidator.config.entryGatingType === GatingType.AssetId) {
-        baseValidator.gatingAssets = baseValidator.config.entryGatingAssets
-          .map((assetId) => gatingAssetQueries.data.find((asset) => asset?.index === assetId))
-          .filter(Boolean) as algosdk.modelsv2.Asset[]
-      }
-
-      if (baseValidator.config.nfdForInfo > 0) {
-        const nfd = nfdQueries.data.find(
-          (result) => result?.appID === Number(baseValidator.config.nfdForInfo),
-        )
-        if (nfd) {
-          baseValidator.nfd = nfd
-        } else {
-          const index = nfdAppIds.indexOf(Number(baseValidator.config.nfdForInfo))
-          baseValidator.nfdLoading = nfdSupportQuery.isPending || !!nfdQueries.pending[index]
-        }
-      }
-      baseValidator.perf = pinned
-        ? undefined
-        : findValidatorPerf(nodelyPerfQuery.data?.data, baseValidator.id)
-
-      // Add metrics if available
-      const validatorMetrics = metrics[i]
-      if (validatorMetrics) {
-        const nodely = queuedNodelyApyQueries.data[i]
-        baseValidator.rewardsBalance = validatorMetrics.rewardsBalance
-        baseValidator.roundsSinceLastPayout = validatorMetrics.roundsSinceLastPayout
-        baseValidator.apy = nodely?.apy ?? realisedApyById.get(id) ?? validatorMetrics.apy
-        baseValidator.extDeposits = nodely?.extDeposits ?? validatorMetrics.extDeposits
-      }
-
-      result.push(baseValidator)
-    }
-
-    return result
+    const built = assembleValidators(
+      validatorData,
+      {
+        rewardTokens: rewardTokenQueries.data,
+        gatingAssets: gatingAssetQueries.data,
+        nfds: nfdQueries.data,
+        nfdAppIds,
+        nfdPending: nfdQueries.pending,
+        nfdSupportPending: nfdSupportQuery.isPending,
+        perfRows: nodelyPerfQuery.data?.data,
+        metrics,
+        nodely: queuedNodelyApyQueries.data,
+        realisedApyById,
+        pinned,
+      },
+      builtRef.current,
+    )
+    // Safe to keep even from a render React later throws away: a build depends only on its inputs
+    builtRef.current = built
+    return built.list
   }, [
     validatorData,
     rewardTokenQueries.data,

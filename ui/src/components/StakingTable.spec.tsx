@@ -19,10 +19,9 @@ vi.mock('@/hooks/useAtRound', () => ({
   useWriteAddress: () => null,
 }))
 vi.mock('@/components/NfdDisplay', () => ({ NfdDisplay: () => null }))
-vi.mock('@/components/AddStakeModal', () => ({ AddStakeModal: () => null }))
-vi.mock('@/components/UnstakeModal', () => ({ UnstakeModal: () => null }))
 
 import { StakingTable } from '@/components/StakingTable'
+import { ValidatorModals, ValidatorModalsContext } from '@/providers/ValidatorModalsProvider'
 
 const TOKEN = { index: 77n, params: { decimals: 2, unitName: 'TKN' } }
 
@@ -51,16 +50,25 @@ function stake(
   }
 }
 
+/** The table only opens modals on click; these tests don't */
+const NO_MODALS: ValidatorModals = {
+  openAddStake: () => {},
+  openUnstake: () => {},
+  openAddPool: () => {},
+}
+
 function renderTable(stakes: StakerValidatorData[]) {
   const validators = [validator(1), validator(2, TOKEN), validator(3, TOKEN)]
   return render(
     <QueryClientProvider client={new QueryClient()}>
-      <StakingTable
-        validators={validators}
-        stakesByValidator={stakes}
-        isLoading={false}
-        constraints={{} as Constraints}
-      />
+      <ValidatorModalsContext.Provider value={NO_MODALS}>
+        <StakingTable
+          validators={validators}
+          stakesByValidator={stakes}
+          isLoading={false}
+          constraints={{} as Constraints}
+        />
+      </ValidatorModalsContext.Provider>
     </QueryClientProvider>,
   )
 }

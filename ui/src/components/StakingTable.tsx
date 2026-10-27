@@ -1,5 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query'
-import { Link, useRouter } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -15,19 +14,12 @@ import {
 } from '@tanstack/react-table'
 import { useWallet } from '@txnlab/use-wallet-react'
 import { useViewedTime, useWriteAddress } from '@/hooks/useAtRound'
-import {
-  Ban,
-  FlaskConical,
-  History,
-  MessageCircleWarning,
-  MoreHorizontal,
-  Sunset,
-} from 'lucide-react'
+import { Ban, History, MessageCircleWarning, MoreHorizontal, Sunset } from 'lucide-react'
 import * as React from 'react'
-import { AddStakeModal } from '@/components/AddStakeModal'
 import { AlgoDisplayAmount } from '@/components/AlgoDisplayAmount'
 import { ClaimTokens } from '@/components/ClaimTokens'
 import { DataTableColumnHeader } from '@/components/DataTableColumnHeader'
+import { SimulateEpochDropdownItem } from '@/components/DevDropdownItems'
 import { Loading } from '@/components/Loading'
 import { NfdDisplay } from '@/components/NfdDisplay'
 import { Tooltip } from '@/components/Tooltip'
@@ -50,10 +42,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { UnstakeModal } from '@/components/UnstakeModal'
 import { Constraints } from '@/contracts/ValidatorRegistryClient'
 import { StakerValidatorData } from '@/interfaces/staking'
 import { Validator } from '@/interfaces/validator'
+import { useValidatorModals } from '@/providers/ValidatorModalsProvider'
 import {
   calculateRewardEligibility,
   canManageValidator,
@@ -63,7 +55,6 @@ import {
   isUnstakingDisabled,
 } from '@/utils/contracts'
 import { dayjs } from '@/utils/dayjs'
-import { simulateEpoch } from '@/utils/development'
 import { ellipseAddressJsx } from '@/utils/ellipseAddress'
 import { formatAssetAmount } from '@/utils/format'
 import { globalFilterFn } from '@/utils/table'
@@ -102,23 +93,13 @@ export const StakingTable = React.memo(function StakingTable({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
 
-  const [addStakeValidator, setAddStakeValidator] = React.useState<Validator | null>(null)
-  const [unstakeValidator, setUnstakeValidator] = React.useState<Validator | null>(null)
+  // Stable openers, so the columns don't depend on modal state
+  const { openAddStake, openUnstake } = useValidatorModals()
 
-  // use-wallet hands out a new signer function on every render. Read at click time through a
-  // ref, so it doesn't rebuild the columns. Set after commit, not during render: a deferred render
-  // React throws away must not leave its signer behind.
-  const { transactionSigner, activeAddress } = useWallet()
-  const signerRef = React.useRef(transactionSigner)
-  React.useLayoutEffect(() => {
-    signerRef.current = transactionSigner
-  })
+  const { activeAddress } = useWallet()
   const writeAddress = useWriteAddress()
   // Re-renders when a past round's time lands, which the sunset checks in the cells read
   useViewedTime()
-
-  const router = useRouter()
-  const queryClient = useQueryClient()
 
   // Validators change with every batch of enrichment data, so the cells look them up through the
   // table's meta rather than closing over them
@@ -291,7 +272,7 @@ export const StakingTable = React.memo(function StakingTable({
               <Button
                 size="sm"
                 className={cn({ hidden: isSunsetted(validator) })}
-                onClick={() => setAddStakeValidator(validator)}
+                onClick={() => openAddStake(validator)}
                 disabled={stakingDisabled}
               >
                 Stake
@@ -299,7 +280,7 @@ export const StakingTable = React.memo(function StakingTable({
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => setUnstakeValidator(validator)}
+                onClick={() => openUnstake(validator)}
                 disabled={unstakingDisabled}
               >
                 Unstake
@@ -315,13 +296,13 @@ export const StakingTable = React.memo(function StakingTable({
                 <DropdownMenuContent align="end" className="w-40">
                   <DropdownMenuGroup>
                     <DropdownMenuItem
-                      onClick={() => setAddStakeValidator(validator)}
+                      onClick={() => openAddStake(validator)}
                       disabled={stakingDisabled}
                     >
                       Stake
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onClick={() => setUnstakeValidator(validator)}
+                      onClick={() => openUnstake(validator)}
                       disabled={unstakingDisabled}
                     >
                       Unstake
@@ -339,23 +320,12 @@ export const StakingTable = React.memo(function StakingTable({
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
-                        <DropdownMenuItem
-                          onClick={async () => {
-                            await simulateEpoch(
-                              validator,
-                              row.original.pools,
-                              100,
-                              signerRef.current,
-                              writeAddress,
-                              queryClient,
-                              router,
-                            )
-                          }}
+                        <SimulateEpochDropdownItem
+                          validator={validator}
+                          pools={row.original.pools}
+                          writeAddress={writeAddress}
                           disabled={unstakingDisabled}
-                        >
-                          <FlaskConical className="h-4 w-4 mr-2 text-muted-foreground" />
-                          Simulate Epoch
-                        </DropdownMenuItem>
+                        />
                       </DropdownMenuGroup>
                     </>
                   )}
@@ -366,7 +336,7 @@ export const StakingTable = React.memo(function StakingTable({
         },
       },
     ],
-    [constraints, writeAddress, stakesByValidator, queryClient, router],
+    [constraints, writeAddress, stakesByValidator, openAddStake, openUnstake],
   )
 
   const table = useReactTable({
@@ -470,18 +440,6 @@ export const StakingTable = React.memo(function StakingTable({
           </div>
         )}
       </div>
-
-      <AddStakeModal
-        validator={addStakeValidator}
-        setValidator={setAddStakeValidator}
-        stakesByValidator={stakesByValidator}
-        constraints={constraints}
-      />
-      <UnstakeModal
-        validator={unstakeValidator}
-        setValidator={setUnstakeValidator}
-        stakesByValidator={stakesByValidator}
-      />
     </>
   )
 })

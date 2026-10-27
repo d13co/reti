@@ -19,6 +19,7 @@ import { ValidatorTable } from '@/components/ValidatorTable'
 import { useAtRound } from '@/hooks/useAtRound'
 import { useValidators } from '@/hooks/useValidators'
 import { StakerValidatorData } from '@/interfaces/staking'
+import { ValidatorModalsProvider } from '@/providers/ValidatorModalsProvider'
 import { parseRound } from '@/utils/round'
 
 const REGISTRY = { registry: true } as const
@@ -100,21 +101,23 @@ function Dashboard() {
         separator
       />
       <PageMain>
-        <div className="space-y-8">
-          <StakingTable
-            validators={validators}
-            stakesByValidator={stakesByValidator}
-            constraints={constraints}
-            isLoading={validatorsLoading || stakesQuery.isLoading}
-          />
-          <TotalsHistory target={REGISTRY} title="Protocol history" />
-          <ValidatorTable
-            validators={validators}
-            stakesByValidator={stakesByValidator}
-            constraints={constraints}
-            isLoading={validatorsLoading}
-          />
-        </div>
+        <ValidatorModalsProvider stakesByValidator={stakesByValidator} constraints={constraints}>
+          <div className="space-y-8">
+            <StakingTable
+              validators={validators}
+              stakesByValidator={stakesByValidator}
+              constraints={constraints}
+              isLoading={validatorsLoading || stakesQuery.isLoading}
+            />
+            <TotalsHistory target={REGISTRY} title="Protocol history" />
+            <ValidatorTable
+              validators={validators}
+              stakesByValidator={stakesByValidator}
+              constraints={constraints}
+              isLoading={validatorsLoading}
+            />
+          </div>
+        </ValidatorModalsProvider>
       </PageMain>
     </>
   )

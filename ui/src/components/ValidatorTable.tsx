@@ -1,9 +1,9 @@
 import { AlgoAmount } from '@algorandfoundation/algokit-utils/types/amount'
-import { useQueryClient } from '@tanstack/react-query'
-import { Link, useRouter } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 import {
   ColumnDef,
   ColumnFiltersState,
+  Row,
   SortingFn,
   SortingState,
   Updater,
@@ -15,13 +15,10 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { useWallet } from '@txnlab/use-wallet-react'
 import { useViewedTime, useWriteAddress } from '@/hooks/useAtRound'
 import { useBlockTime } from '@/hooks/useBlockTime'
-import { Ban, ChevronRight, FlaskConical, MoreHorizontal, Sunset } from 'lucide-react'
+import { Ban, ChevronRight, Sunset } from 'lucide-react'
 import * as React from 'react'
-import { AddPoolModal } from '@/components/AddPoolModal'
-import { AddStakeModal } from '@/components/AddStakeModal'
 import { AlgoDisplayAmount } from '@/components/AlgoDisplayAmount'
 import { AlgoSymbol } from '@/components/AlgoSymbol'
 import { DataTableColumnHeader } from '@/components/DataTableColumnHeader'
@@ -30,16 +27,7 @@ import { DebouncedSearch } from '@/components/DebouncedSearch'
 import { Loading } from '@/components/Loading'
 import { Tooltip } from '@/components/Tooltip'
 import { TrafficLight } from '@/components/TrafficLight'
-import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   Table,
   TableBody,
@@ -48,7 +36,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { UnstakeModal } from '@/components/UnstakeModal'
+import { ValidatorActionsCell } from '@/components/ValidatorActionsCell'
 import { ValidatorInfoRow } from '@/components/ValidatorInfoRow'
 import { NfdLoadingDisplay } from '@/components/NfdDisplay'
 import { ValidatorNfdDisplay } from '@/components/ValidatorNfdDisplay'
@@ -61,16 +49,10 @@ import {
   calculateMaxStake,
   calculateSaturationPercentage,
   calculateStakeSaturation,
-  canManageValidator,
-  isAddingPoolDisabled,
-  isFirstPoolFull,
-  isStakingDisabled,
   isSunsetted,
   isSunsetting,
-  isUnstakingDisabled,
 } from '@/utils/contracts'
 import { dayjs } from '@/utils/dayjs'
-import { sendRewardTokensToPool, simulateEpoch } from '@/utils/development'
 import { ellipseAddressJsx } from '@/utils/ellipseAddress'
 import { compactFormat, formatAmount, formatAssetAmount } from '@/utils/format'
 import { globalFilterFn, ineligibleFilter, MIN_ELIGIBLE_STAKE, sunsetFilter } from '@/utils/table'
@@ -123,28 +105,15 @@ export const ValidatorTable = React.memo(function ValidatorTable({
   constraints,
   isLoading,
 }: ValidatorTableProps) {
-  const [addStakeValidator, setAddStakeValidator] = React.useState<Validator | null>(null)
-  const [unstakeValidator, setUnstakeValidator] = React.useState<Validator | null>(null)
-  const [addPoolValidator, setAddPoolValidator] = React.useState<Validator | null>(null)
-
-  // use-wallet hands out a new signer function on every render. Read at click time through a
-  // ref, so it doesn't rebuild the columns. Set after commit, not during render: a deferred render
-  // React throws away must not leave its signer behind.
-  const { transactionSigner } = useWallet()
-  const signerRef = React.useRef(transactionSigner)
-  React.useLayoutEffect(() => {
-    signerRef.current = transactionSigner
-  })
-
   const writeAddress = useWriteAddress()
   // The time shown, which the sunset checks (and the sunset filter) read: a past round's can
   // land after the table first renders
   const viewedTime = useViewedTime()
   // Read once here rather than in every row's status cell
   const blockTime = useBlockTime()
-
-  const router = useRouter()
-  const queryClient = useQueryClient()
+  // At the latest round the sunset checks read the clock, and memoized rows only re-render when
+  // their validator changes: without a tick, a sunset passing on an open page would show late
+  const clockMinute = useClockMinute(viewedTime === undefined)
 
   // Persistent column sorting state
   const [sorting, setSorting] = useLocalStorage<SortingState>('validator-sorting', [
@@ -230,50 +199,45 @@ export const ValidatorTable = React.memo(function ValidatorTable({
           const validator = row.original
           const nfd = validator.nfd
 
-          // Memoize the cell content
-          const content = React.useMemo(() => {
-            return (
-              <div className="flex items-center gap-x-2 min-w-0 max-w-[10rem] xl:max-w-[16rem]">
-                {isSunsetted(validator, viewedTime) ? (
-                  <Tooltip
-                    content={`Sunset on ${dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}`}
-                  >
-                    <Ban className="h-5 w-5 text-muted-foreground transition-colors" />
-                  </Tooltip>
-                ) : isSunsetting(validator) ? (
-                  <Tooltip
-                    content={`Will sunset on ${dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}`}
-                  >
-                    <Sunset className="h-5 w-5 text-muted-foreground transition-colors" />
-                  </Tooltip>
-                ) : null}
-                {nfd ? (
-                  <ValidatorNfdDisplay
-                    nfd={nfd}
-                    validatorId={validator.id}
-                    isSunsetted={isSunsetted(validator, viewedTime)}
-                  />
-                ) : (
-                  <Link
-                    to="/validators/$validatorId"
-                    params={{
-                      validatorId: String(validator.id),
-                    }}
-                    className="link underline-offset-4 whitespace-nowrap font-mono"
-                    preload="intent"
-                  >
-                    {validator.nfdLoading ? (
-                      <NfdLoadingDisplay address={validator.config.owner} />
-                    ) : (
-                      ellipseAddressJsx(validator.config.owner)
-                    )}
-                  </Link>
-                )}
-              </div>
-            )
-          }, [validator, nfd, viewedTime])
-
-          return content
+          return (
+            <div className="flex items-center gap-x-2 min-w-0 max-w-[10rem] xl:max-w-[16rem]">
+              {isSunsetted(validator, viewedTime) ? (
+                <Tooltip
+                  content={`Sunset on ${dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}`}
+                >
+                  <Ban className="h-5 w-5 text-muted-foreground transition-colors" />
+                </Tooltip>
+              ) : isSunsetting(validator) ? (
+                <Tooltip
+                  content={`Will sunset on ${dayjs.unix(Number(validator.config.sunsettingOn)).format('ll')}`}
+                >
+                  <Sunset className="h-5 w-5 text-muted-foreground transition-colors" />
+                </Tooltip>
+              ) : null}
+              {nfd ? (
+                <ValidatorNfdDisplay
+                  nfd={nfd}
+                  validatorId={validator.id}
+                  isSunsetted={isSunsetted(validator, viewedTime)}
+                />
+              ) : (
+                <Link
+                  to="/validators/$validatorId"
+                  params={{
+                    validatorId: String(validator.id),
+                  }}
+                  className="link underline-offset-4 whitespace-nowrap font-mono"
+                  preload="intent"
+                >
+                  {validator.nfdLoading ? (
+                    <NfdLoadingDisplay address={validator.config.owner} />
+                  ) : (
+                    ellipseAddressJsx(validator.config.owner)
+                  )}
+                </Link>
+              )}
+            </div>
+          )
         },
       },
       {
@@ -400,148 +364,18 @@ export const ValidatorTable = React.memo(function ValidatorTable({
       },
       {
         id: 'actions',
-        cell: ({ row }) => {
-          const validator = row.original
-          const firstPoolFull = isFirstPoolFull(validator, constraints)
-          const stakingDisabled = isStakingDisabled(writeAddress, validator, constraints)
-          const unstakingDisabled = isUnstakingDisabled(writeAddress, validator, stakesByValidator)
-          const addingPoolDisabled = isAddingPoolDisabled(writeAddress, validator, constraints)
-          const canManage = canManageValidator(writeAddress, validator)
-
-          const isDevelopment = process.env.NODE_ENV === 'development'
-          const hasRewardToken = validator.config.rewardTokenId > 0
-          const canSendRewardTokens = isDevelopment && canManage && hasRewardToken
-          const sendRewardTokensDisabled = validator.state.numPools === 0
-
-          const stakerValidatorData = stakesByValidator.find(
-            (data) => data.validatorId === BigInt(validator.id),
-          )
-          const stakerPoolData = stakerValidatorData?.pools
-          const canSimulateEpoch = isDevelopment && canManage && !!stakerPoolData
-
-          return (
-            <div className="flex items-center justify-end gap-x-2">
-              {isSunsetting(validator) && !unstakingDisabled ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setUnstakeValidator(validator)}
-                >
-                  Unstake
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  disabled={firstPoolFull || stakingDisabled}
-                  onClick={() => setAddStakeValidator(validator)}
-                  className="min-w-[70px]"
-                >
-                  {firstPoolFull ? 'Full' : 'Stake'}
-                </Button>
-              )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-8 w-8 p-0">
-                    <span className="sr-only">Open menu</span>
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40">
-                  {!!writeAddress && (
-                    <>
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem
-                          onClick={() => setAddStakeValidator(validator)}
-                          disabled={stakingDisabled}
-                        >
-                          Stake
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setUnstakeValidator(validator)}
-                          disabled={unstakingDisabled}
-                        >
-                          Unstake
-                        </DropdownMenuItem>
-
-                        {canManage && (
-                          <DropdownMenuItem
-                            onClick={() => setAddPoolValidator(validator)}
-                            disabled={addingPoolDisabled}
-                          >
-                            Add Staking Pool
-                          </DropdownMenuItem>
-                        )}
-
-                        {canSimulateEpoch && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuGroup>
-                              <DropdownMenuItem
-                                onClick={async () => {
-                                  await simulateEpoch(
-                                    validator,
-                                    stakerPoolData,
-                                    100,
-                                    signerRef.current,
-                                    writeAddress!,
-                                    queryClient,
-                                    router,
-                                  )
-                                }}
-                                disabled={unstakingDisabled}
-                              >
-                                <FlaskConical className="h-4 w-4 mr-2 text-muted-foreground" />
-                                Simulate Epoch
-                              </DropdownMenuItem>
-                            </DropdownMenuGroup>
-                          </>
-                        )}
-
-                        {canSendRewardTokens && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuGroup>
-                              <DropdownMenuItem
-                                onClick={async () => {
-                                  await sendRewardTokensToPool(
-                                    validator,
-                                    5000,
-                                    signerRef.current,
-                                    writeAddress!,
-                                  )
-                                }}
-                                disabled={sendRewardTokensDisabled}
-                              >
-                                <FlaskConical className="h-4 w-4 mr-2 text-muted-foreground" />
-                                Send Tokens
-                              </DropdownMenuItem>
-                            </DropdownMenuGroup>
-                          </>
-                        )}
-                      </DropdownMenuGroup>
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem asChild>
-                      <Link
-                        to="/validators/$validatorId"
-                        params={{ validatorId: validator.id.toString() }}
-                        preload="intent"
-                      >
-                        {canManage ? 'Manage' : 'View'}
-                      </Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )
-        },
+        cell: ({ row }) => (
+          <ValidatorActionsCell
+            validator={row.original}
+            constraints={constraints}
+            writeAddress={writeAddress}
+            stakesByValidator={stakesByValidator}
+          />
+        ),
         size: 120,
       },
     ],
-    [constraints, viewedTime, blockTime, writeAddress, stakesByValidator, queryClient, router],
+    [constraints, viewedTime, blockTime, writeAddress, stakesByValidator],
   )
 
   // A new array when the time shown changes, so the table re-runs the sunset filter
@@ -561,6 +395,9 @@ export const ValidatorTable = React.memo(function ValidatorTable({
     onColumnFiltersChange: handleColumnFiltersChange,
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: handleColumnVisibilityChange,
+    // By validator rather than position, so a row (its React key, its expanded state) follows its
+    // validator through re-sorts and refetches
+    getRowId: (validator) => String(validator.id),
     getRowCanExpand: () => true,
     getExpandedRowModel: getExpandedRowModel(),
     state: {
@@ -570,6 +407,12 @@ export const ValidatorTable = React.memo(function ValidatorTable({
       globalFilter,
     },
   })
+
+  // The visible columns, as a value the memoized rows can compare
+  const visibleColumns = table
+    .getVisibleLeafColumns()
+    .map((column) => column.id)
+    .join(',')
 
   // Pre-filtered count of sunsetted validators
   const sunsetCount = table
@@ -653,30 +496,20 @@ export const ValidatorTable = React.memo(function ValidatorTable({
             </TableHeader>
             <TableBody>
               {table.getRowModel().rows.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <React.Fragment key={row.id}>
-                    <TableRow
-                      data-state={row.getIsSelected() && 'selected'}
-                      className={cn({
-                        'text-foreground/50': isSunsetted(row.original),
-                        'border-b-0 bg-muted/25': row.getIsExpanded(),
-                      })}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id} className="first:pr-0">
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                    {row.getIsExpanded() && (
-                      <TableRow className="bg-muted/50 hover:bg-muted/50">
-                        <TableCell colSpan={row.getVisibleCells().length} className="p-0">
-                          <ValidatorInfoRow validator={row.original} constraints={constraints} />
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </React.Fragment>
-                ))
+                table
+                  .getRowModel()
+                  .rows.map((row) => (
+                    <ValidatorRow
+                      key={row.id}
+                      row={row}
+                      validator={row.original}
+                      expanded={row.getIsExpanded()}
+                      columns={columns}
+                      visibleColumns={visibleColumns}
+                      constraints={constraints}
+                      clockMinute={clockMinute}
+                    />
+                  ))
               ) : (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={columns.length} className="h-24 text-center">
@@ -688,19 +521,73 @@ export const ValidatorTable = React.memo(function ValidatorTable({
           </Table>
         </div>
       </div>
-
-      <AddStakeModal
-        validator={addStakeValidator}
-        setValidator={setAddStakeValidator}
-        stakesByValidator={stakesByValidator}
-        constraints={constraints}
-      />
-      <UnstakeModal
-        validator={unstakeValidator}
-        setValidator={setUnstakeValidator}
-        stakesByValidator={stakesByValidator}
-      />
-      <AddPoolModal validator={addPoolValidator} setValidator={setAddPoolValidator} />
     </>
   )
 })
+
+interface ValidatorRowProps {
+  row: Row<Validator>
+  /** Compared instead of `row`, which the table rebuilds for every row whenever any data changes */
+  validator: Validator
+  expanded: boolean
+  /** The cells close over the table's shared values; a new array means those changed */
+  columns: ColumnDef<Validator>[]
+  visibleColumns: string
+  constraints: Constraints
+  /** Re-renders the row each minute while the sunset checks read the clock */
+  clockMinute: number
+}
+
+/**
+ * One validator's row, plus its details when expanded. Memoized on the validator object, which
+ * `useValidators` keeps while nothing about that validator changed, so a batch of data that
+ * touches a few validators re-renders only their rows.
+ */
+const ValidatorRow = React.memo(
+  function ValidatorRow({ row, expanded, constraints }: ValidatorRowProps) {
+    const cells = row.getVisibleCells()
+    return (
+      <>
+        <TableRow
+          className={cn({
+            'text-foreground/50': isSunsetted(row.original),
+            'border-b-0 bg-muted/25': expanded,
+          })}
+        >
+          {cells.map((cell) => (
+            <TableCell key={cell.id} className="first:pr-0">
+              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            </TableCell>
+          ))}
+        </TableRow>
+        {expanded && (
+          <TableRow className="bg-muted/50 hover:bg-muted/50">
+            <TableCell colSpan={cells.length} className="p-0">
+              <ValidatorInfoRow validator={row.original} constraints={constraints} />
+            </TableCell>
+          </TableRow>
+        )}
+      </>
+    )
+  },
+  (previous, next) =>
+    previous.validator === next.validator &&
+    previous.expanded === next.expanded &&
+    previous.columns === next.columns &&
+    previous.visibleColumns === next.visibleColumns &&
+    previous.constraints === next.constraints &&
+    previous.clockMinute === next.clockMinute,
+)
+
+/** The current minute while `enabled`, ticking; 0 otherwise. */
+function useClockMinute(enabled: boolean): number {
+  const [minute, setMinute] = React.useState(() => Math.floor(Date.now() / 60_000))
+  React.useEffect(() => {
+    if (!enabled) return
+    const tick = () => setMinute(Math.floor(Date.now() / 60_000))
+    tick()
+    const timer = setInterval(tick, 60_000)
+    return () => clearInterval(timer)
+  }, [enabled])
+  return enabled ? minute : 0
+}
