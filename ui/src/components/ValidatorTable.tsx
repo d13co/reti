@@ -1,4 +1,5 @@
 import { AlgoAmount } from '@algorandfoundation/algokit-utils/types/amount'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
   ColumnDef,
@@ -16,7 +17,8 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
-import { useViewedTime, useWriteAddress } from '@/hooks/useAtRound'
+import { poolGlobalStatesQueryOptions } from '@/api/queries'
+import { useAtRound, useViewedTime, useWriteAddress } from '@/hooks/useAtRound'
 import { useBlockTime } from '@/hooks/useBlockTime'
 import { Ban, ChevronRight, Sunset } from 'lucide-react'
 import * as React from 'react'
@@ -46,6 +48,12 @@ import { Constraints } from '@/contracts/ValidatorRegistryClient'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { StakerValidatorData } from '@/interfaces/staking'
 import { Validator } from '@/interfaces/validator'
+import {
+  AlgodVersion,
+  compareAlgodVersions,
+  eligibleAlgodVersions,
+  oldestAlgodVersion,
+} from '@/utils/algodVersion'
 import {
   calculateMaxStake,
   calculateSaturationPercentage,
@@ -96,6 +104,17 @@ const sortRewardsFn: SortingFn<Validator> = (rowA, rowB) => {
   return Number(a.rewardsBalance - b.rewardsBalance)
 }
 
+const sortAlgodVersionFn: SortingFn<Validator> = (rowA, rowB, columnId) =>
+  compareAlgodVersions(rowA.getValue<AlgodVersion>(columnId), rowB.getValue<AlgodVersion>(columnId))
+
+/** The algod column's id: hidden unless chosen, so its data is only read once it's shown */
+const ALGOD_COLUMN = 'algod'
+
+const NO_ALGOD_VERSIONS = new Map<number, AlgodVersion>()
+
+/** Read while the algod column is hidden: a constant, so pool state refetches don't re-render */
+const selectNothing = (): null => null
+
 /**
  * Memoized: the dashboard re-renders for every batch of enrichment data, and this table should
  * only follow when its own props change.
@@ -131,9 +150,14 @@ export const ValidatorTable = React.memo(function ValidatorTable({
   }
 
   // Persistent column visibility state
-  const [columnVisibility, setColumnVisibility] = useLocalStorage<VisibilityState>(
+  const [storedColumnVisibility, setColumnVisibility] = useLocalStorage<VisibilityState>(
     'validator-columns',
-    { 'pend. reward': false },
+    { 'pend. reward': false, [ALGOD_COLUMN]: false },
+  )
+  // Hidden unless chosen, also for visibility stored before the column existed
+  const columnVisibility = React.useMemo(
+    () => ({ [ALGOD_COLUMN]: false, ...storedColumnVisibility }),
+    [storedColumnVisibility],
   )
 
   const handleColumnVisibilityChange = (updaterOrValue: Updater<VisibilityState>) => {
@@ -165,6 +189,31 @@ export const ValidatorTable = React.memo(function ValidatorTable({
 
   // Persistent global filter state
   const [globalFilter, setGlobalFilter] = useLocalStorage<string>('validator-global-filter', '')
+
+  // The oldest algod version among each validator's eligible pools, only while its column is
+  // shown. From the bulk pool state the dashboard already reads, so showing it is normally a
+  // cache hit; hidden, it neither fetches nor re-renders the table
+  const queryClient = useQueryClient()
+  const { round } = useAtRound()
+  const showAlgod = columnVisibility[ALGOD_COLUMN] === true
+  const poolAlgodVersions = useQuery({
+    ...poolGlobalStatesQueryOptions(queryClient, round),
+    enabled: showAlgod,
+    select: showAlgod ? eligibleAlgodVersions : selectNothing,
+  }).data
+  const algodVersions = React.useMemo(() => {
+    if (!showAlgod || !poolAlgodVersions) return NO_ALGOD_VERSIONS
+    const versions = new Map<number, AlgodVersion>()
+    for (const validator of validators) {
+      const oldest = oldestAlgodVersion(validator.pools, poolAlgodVersions)
+      if (oldest) versions.set(validator.id, oldest)
+    }
+    return versions
+  }, [showAlgod, poolAlgodVersions, validators])
+  // Read through a ref so the columns stay stable; `data` below changes with it, which has the
+  // table read the column's values again
+  const algodVersionsRef = React.useRef(algodVersions)
+  algodVersionsRef.current = algodVersions
 
   // Column definitions. Memoized, and every dependency must be referentially stable:
   // `flexRender` renders each `cell` as a component, so a new column array gives every cell a
@@ -374,6 +423,23 @@ export const ValidatorTable = React.memo(function ValidatorTable({
         },
       },
       {
+        id: ALGOD_COLUMN,
+        size: 96,
+        accessorFn: (row) => algodVersionsRef.current.get(row.id),
+        sortingFn: sortAlgodVersionFn,
+        sortUndefined: 'last',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Algod" />,
+        cell: ({ getValue }) => {
+          const version = getValue<AlgodVersion | undefined>()
+          if (!version) return <span className="text-muted-foreground">--</span>
+          return (
+            <Tooltip content={`Oldest of the eligible pools: ${version.full}`}>
+              <span className="font-mono">{version.release}</span>
+            </Tooltip>
+          )
+        },
+      },
+      {
         id: 'actions',
         size: 128,
         cell: ({ row }) => (
@@ -389,8 +455,9 @@ export const ValidatorTable = React.memo(function ValidatorTable({
     [constraints, viewedTime, blockTime, writeAddress, stakesByValidator],
   )
 
-  // A new array when the time shown changes, so the table re-runs the sunset filter
-  const data = React.useMemo(() => [...validators], [validators, viewedTime])
+  // A new array when the time shown changes, so the table re-runs the sunset filter, and when the
+  // algod versions do, so it reads them again
+  const data = React.useMemo(() => [...validators], [validators, viewedTime, algodVersions])
 
   const table = useReactTable<Validator>({
     data,
@@ -614,6 +681,7 @@ function VirtualRows({
               visibleColumns={visibleColumns}
               constraints={constraints}
               clockMinute={clockMinute}
+              algodVersion={row.getValue<AlgodVersion | undefined>(ALGOD_COLUMN)?.full}
             />
           </tbody>
         )
@@ -668,6 +736,8 @@ interface ValidatorRowProps {
   constraints: Constraints
   /** Re-renders the row each minute while the sunset checks read the clock */
   clockMinute: number
+  /** The algod column's version, which isn't part of the validator */
+  algodVersion: string | undefined
 }
 
 /**
@@ -708,7 +778,8 @@ const ValidatorRow = React.memo(
     previous.columns === next.columns &&
     previous.visibleColumns === next.visibleColumns &&
     previous.constraints === next.constraints &&
-    previous.clockMinute === next.clockMinute,
+    previous.clockMinute === next.clockMinute &&
+    previous.algodVersion === next.algodVersion,
 )
 
 /** The current minute while `enabled`, ticking; 0 otherwise. */
