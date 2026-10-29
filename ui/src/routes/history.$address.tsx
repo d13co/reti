@@ -1,4 +1,4 @@
-import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import algosdk from 'algosdk'
 import { History, MessageCircleWarning } from 'lucide-react'
@@ -8,7 +8,7 @@ import {
   type StakeEvent,
   type StakerPoolMembership,
 } from '@/api/history'
-import { allValidatorsQueryOptions, nfdLookupQueryOptions, nfdQueryOptions } from '@/api/queries'
+import { allValidatorsQueryOptions, nfdLookupQueryOptions } from '@/api/queries'
 import { timeTravelSupportQueryOptions } from '@/api/reti'
 import { AlgoDisplayAmount } from '@/components/AlgoDisplayAmount'
 import { ErrorAlert } from '@/components/ErrorAlert'
@@ -30,6 +30,7 @@ import {
 import { SkeletonText } from '@/components/ui/skeleton'
 import { useAtRound } from '@/hooks/useAtRound'
 import { useStakerHistory, useStakerPools } from '@/hooks/useStakerHistory'
+import { useValidatorNames } from '@/hooks/useValidatorNames'
 import { parseRound } from '@/utils/round'
 
 export const Route = createFileRoute('/history/$address')({
@@ -188,33 +189,6 @@ function HistoryBody({ address }: { address: string }) {
       </div>
     </div>
   )
-}
-
-/**
- * The NFD names of validators that have one, by id, as they resolve. Shares its lookups with the
- * table's names (same queries), so it adds no requests.
- */
-function useValidatorNames(
-  validatorIds: number[],
-  validators?: { id: number; config: { nfdForInfo: bigint } }[],
-  round?: bigint,
-): Map<number, string> {
-  const nfdAppIds = validatorIds.map(
-    (id) => validators?.find((v) => v.id === id)?.config.nfdForInfo ?? 0n,
-  )
-  const nfdQueries = useQueries({
-    queries: nfdAppIds.map((nfdAppId) => ({
-      ...nfdQueryOptions(nfdAppId, undefined, undefined, round),
-      enabled: nfdAppId > 0n,
-      // A slot never shows another validator's name while its own loads
-      placeholderData: undefined,
-    })),
-  })
-  const names = new Map<number, string>()
-  nfdQueries.forEach((query, i) => {
-    if (nfdAppIds[i] > 0n && query.data?.name) names.set(validatorIds[i], query.data.name)
-  })
-  return names
 }
 
 function ProgressLine({ progress }: { progress?: { pools: number; poolsDone: number } }) {

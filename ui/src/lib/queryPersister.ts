@@ -20,6 +20,8 @@ import { isPinnedQueryKey } from '@/utils/round'
 const PERSISTED_QUERY_ROOTS = new Set([
   'all-validators',
   'pool-global-states',
+  'pool-algod-changes',
+  'pool-algod-versions-at',
   'validator-metrics',
   'nodely-apy',
   'realised-apy',

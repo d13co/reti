@@ -12,6 +12,7 @@
 
 import { Route as rootRoute } from './routes/__root'
 import { Route as ValidatorsImport } from './routes/validators'
+import { Route as UpgradesImport } from './routes/upgrades'
 import { Route as InstitutionalSupportImport } from './routes/institutional-support'
 import { Route as AddImport } from './routes/add'
 import { Route as IndexImport } from './routes/index'
@@ -23,6 +24,12 @@ import { Route as HistoryAddressImport } from './routes/history.$address'
 const ValidatorsRoute = ValidatorsImport.update({
   id: '/validators',
   path: '/validators',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const UpgradesRoute = UpgradesImport.update({
+  id: '/upgrades',
+  path: '/upgrades',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -81,6 +88,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InstitutionalSupportImport
       parentRoute: typeof rootRoute
     }
+    '/upgrades': {
+      id: '/upgrades'
+      path: '/upgrades'
+      fullPath: '/upgrades'
+      preLoaderRoute: typeof UpgradesImport
+      parentRoute: typeof rootRoute
+    }
     '/validators': {
       id: '/validators'
       path: '/validators'
@@ -111,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/add': typeof AddRoute
   '/institutional-support': typeof InstitutionalSupportRoute
+  '/upgrades': typeof UpgradesRoute
   '/validators': typeof ValidatorsRoute
   '/history/$address': typeof HistoryAddressRoute
   '/validators/$validatorId': typeof ValidatorsValidatorIdRoute
@@ -120,6 +135,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/add': typeof AddRoute
   '/institutional-support': typeof InstitutionalSupportRoute
+  '/upgrades': typeof UpgradesRoute
   '/validators': typeof ValidatorsRoute
   '/history/$address': typeof HistoryAddressRoute
   '/validators/$validatorId': typeof ValidatorsValidatorIdRoute
@@ -130,6 +146,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/add': typeof AddRoute
   '/institutional-support': typeof InstitutionalSupportRoute
+  '/upgrades': typeof UpgradesRoute
   '/validators': typeof ValidatorsRoute
   '/history/$address': typeof HistoryAddressRoute
   '/validators_/$validatorId': typeof ValidatorsValidatorIdRoute
@@ -141,6 +158,7 @@ export interface FileRouteTypes {
     | '/'
     | '/add'
     | '/institutional-support'
+    | '/upgrades'
     | '/validators'
     | '/history/$address'
     | '/validators/$validatorId'
@@ -149,6 +167,7 @@ export interface FileRouteTypes {
     | '/'
     | '/add'
     | '/institutional-support'
+    | '/upgrades'
     | '/validators'
     | '/history/$address'
     | '/validators/$validatorId'
@@ -157,6 +176,7 @@ export interface FileRouteTypes {
     | '/'
     | '/add'
     | '/institutional-support'
+    | '/upgrades'
     | '/validators'
     | '/history/$address'
     | '/validators_/$validatorId'
@@ -167,6 +187,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AddRoute: typeof AddRoute
   InstitutionalSupportRoute: typeof InstitutionalSupportRoute
+  UpgradesRoute: typeof UpgradesRoute
   ValidatorsRoute: typeof ValidatorsRoute
   HistoryAddressRoute: typeof HistoryAddressRoute
   ValidatorsValidatorIdRoute: typeof ValidatorsValidatorIdRoute
@@ -176,6 +197,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AddRoute: AddRoute,
   InstitutionalSupportRoute: InstitutionalSupportRoute,
+  UpgradesRoute: UpgradesRoute,
   ValidatorsRoute: ValidatorsRoute,
   HistoryAddressRoute: HistoryAddressRoute,
   ValidatorsValidatorIdRoute: ValidatorsValidatorIdRoute,
@@ -196,6 +218,7 @@ export const routeTree = rootRoute
         "/",
         "/add",
         "/institutional-support",
+        "/upgrades",
         "/validators",
         "/history/$address",
         "/validators_/$validatorId"
@@ -209,6 +232,9 @@ export const routeTree = rootRoute
     },
     "/institutional-support": {
       "filePath": "institutional-support.tsx"
+    },
+    "/upgrades": {
+      "filePath": "upgrades.tsx"
     },
     "/validators": {
       "filePath": "validators.tsx"
