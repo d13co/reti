@@ -117,6 +117,12 @@ function UpgradesBody() {
   const latest = [...colors.keys()].pop()
   // When the first validator in view reached each release
   const firstTimes = React.useMemo(() => firstReached(lanes), [lanes])
+  // The release picked in the legend, whose segments keep their colour while the rest go muted,
+  // and which the "behind" and adoption orders measure against
+  const [picked, setPicked] = React.useState<string>()
+  const focus = picked !== undefined && colors.has(picked) ? picked : undefined
+  // A picked release orders the lanes by who reached it or a newer one
+  const sortRelease = sort === 'stake' ? undefined : focus
 
   // The validators the search and "behind" filter leave, for the lanes and the list alike
   const shown = React.useMemo(() => {
@@ -182,10 +188,16 @@ function UpgradesBody() {
             className="w-full sm:w-64"
           />
           <Select value={sort} onValueChange={(value) => setSort(value as LaneSort)}>
-            <SelectTrigger className="w-[210px]" aria-label="Sort validators">
+            <SelectTrigger className="w-auto min-w-[210px]" aria-label="Sort validators">
               <span className="text-muted-foreground">Sort:</span>
-              <span className="flex-1 pl-1 text-left">
+              <span className="flex-1 whitespace-nowrap pl-1 text-left">
                 <SelectValue />
+                {sortRelease !== undefined && (
+                  <span className="text-muted-foreground">
+                    {' '}
+                    vs <span className="font-mono">{sortRelease}</span>
+                  </span>
+                )}
               </span>
             </SelectTrigger>
             <SelectContent>
@@ -254,6 +266,9 @@ function UpgradesBody() {
           total={lanes.length}
           stakes={stakes}
           sort={sort}
+          sortRelease={sortRelease}
+          focus={focus}
+          onPick={setPicked}
           colors={colors}
           latest={latest}
           firstTimes={firstTimes}
@@ -289,6 +304,11 @@ interface LanesProps {
   /** Each validator's total stake at the round on screen */
   stakes: Map<number, bigint>
   sort: LaneSort
+  /** The release the lanes are ordered against, if any */
+  sortRelease?: string
+  /** The release picked in the legend, if any */
+  focus?: string
+  onPick: (release: string | undefined) => void
   colors: Map<string, ReleaseColor>
   latest?: string
   /** When the first validator moved onto the latest release */
@@ -307,6 +327,9 @@ function Lanes({
   total,
   stakes,
   sort,
+  sortRelease,
+  focus,
+  onPick,
   colors,
   latest,
   firstTimes,
@@ -315,10 +338,10 @@ function Lanes({
   nameOf,
   loading,
 }: LanesProps) {
-  const sorted = React.useMemo(() => sortLanes(lanes, sort, stakes), [lanes, sort, stakes])
-  // The release picked in the legend, whose segments keep their colour while the rest go muted
-  const [picked, setPicked] = React.useState<string>()
-  const focus = picked !== undefined && colors.has(picked) ? picked : undefined
+  const sorted = React.useMemo(
+    () => sortLanes(lanes, sort, stakes, sortRelease),
+    [lanes, sort, stakes, sortRelease],
+  )
   const span = Math.max(1, toTime - fromTime)
   const at = React.useCallback(
     (time: number) => `${((Math.min(Math.max(time, fromTime), toTime) - fromTime) / span) * 100}%`,
@@ -342,8 +365,12 @@ function Lanes({
               <button
                 type="button"
                 aria-pressed={focus === release}
-                title={focus === release ? 'Show every release' : `Pick out ${release}`}
-                onClick={() => setPicked(focus === release ? undefined : release)}
+                title={
+                  focus === release
+                    ? `Show every release${sortRelease === release ? ' and the usual order' : ''}`
+                    : `Pick out ${release}${sort === 'stake' ? '' : ' and order by it'}`
+                }
+                onClick={() => onPick(focus === release ? undefined : release)}
                 className={cn(
                   '-mx-1 flex items-center gap-x-1.5 rounded-sm px-1 py-0.5 transition-opacity hover:bg-muted',
                   focus === release && 'bg-muted',
@@ -356,6 +383,10 @@ function Lanes({
                   aria-hidden
                 />
                 <span className="font-mono">{release}</span>
+                {/* The order counts validators past it too, though only it keeps its colour */}
+                {sortRelease === release && !color.latest && (
+                  <span className="text-muted-foreground">or newer</span>
+                )}
                 {color.latest && <span className="text-muted-foreground">latest</span>}
               </button>
             </li>

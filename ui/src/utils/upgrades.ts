@@ -473,16 +473,40 @@ export const LANE_SORTS: { value: LaneSort; label: string }[] = [
 ]
 
 /**
+ * When a validator's lane last reached `release` or a newer one and stayed: the start of its run
+ * of segments at or past it at the end of the window. The window's start if it was already there
+ * then; undefined if it is behind `release` at the end.
+ */
+export function reachedAt(lane: ValidatorLane, release: string): number | undefined {
+  const target = parseAlgodVersion(release)
+  let reached: number | undefined
+  for (let i = lane.segments.length - 1; i >= 0; i--) {
+    const version = lane.segments[i].version
+    if (!version || compareAlgodVersions(version, target) < 0) break
+    reached = lane.segments[i].start
+  }
+  return reached
+}
+
+/**
  * The lanes in `sort` order, ties by stake (most first), then validator id:
  * - stake: most first
  * - behind: oldest current release first
  * - adoption: newest current release first, then who moved onto it earliest
+ *
+ * With a `release` picked, both measure against it instead:
+ * - behind: those not on it yet first, as with no release picked; then those on it or past it,
+ *   who reached it latest first
+ * - adoption: those on it or past it first, who reached it earliest first; then those not on it
+ *   yet, as with no release picked
+ *
  * Validators with no current release go last.
  */
 export function sortLanes(
   lanes: ValidatorLane[],
   sort: LaneSort,
   stakes: Map<number, bigint>,
+  release?: string,
 ): ValidatorLane[] {
   const byStake = (a: ValidatorLane, b: ValidatorLane) => {
     const stakeA = stakes.get(a.validatorId) ?? 0n
@@ -491,18 +515,37 @@ export function sortLanes(
     return a.validatorId - b.validatorId
   }
   if (sort === 'stake') return [...lanes].sort(byStake)
+  // When each lane moved onto the release it's on
   const adopted = new Map(
     lanes.map((lane) => [lane, lane.current ? adoptedAt(lane, lane.current.release) : undefined]),
   )
-  return [...lanes].sort((a, b) => {
-    if (!a.current || !b.current) {
-      return a.current ? -1 : b.current ? 1 : byStake(a, b)
-    }
-    if (sort === 'behind') return compareAlgodVersions(a.current, b.current) || byStake(a, b)
-    const newer = compareAlgodVersions(b.current, a.current)
+  // By current release, as `sort` orders lanes with no release picked
+  const byCurrent = (a: ValidatorLane, b: ValidatorLane, va: AlgodVersion, vb: AlgodVersion) => {
+    if (sort === 'behind') return compareAlgodVersions(va, vb) || byStake(a, b)
+    const newer = compareAlgodVersions(vb, va)
     if (newer !== 0) return newer
     const timeA = adopted.get(a) ?? Infinity
     const timeB = adopted.get(b) ?? Infinity
     return timeA !== timeB ? timeA - timeB : byStake(a, b)
+  }
+  // When each lane reached the picked release or a newer one
+  const reached =
+    release === undefined
+      ? undefined
+      : new Map(lanes.map((lane) => [lane, reachedAt(lane, release)]))
+  return [...lanes].sort((a, b) => {
+    if (!a.current || !b.current) {
+      return a.current ? -1 : b.current ? 1 : byStake(a, b)
+    }
+    if (!reached) return byCurrent(a, b, a.current, b.current)
+    const timeA = reached.get(a)
+    const timeB = reached.get(b)
+    if ((timeA === undefined) !== (timeB === undefined)) {
+      return (timeA === undefined) === (sort === 'behind') ? -1 : 1
+    }
+    // Neither has reached it: the order without a pick
+    if (timeA === undefined || timeB === undefined) return byCurrent(a, b, a.current, b.current)
+    if (timeA === timeB) return byStake(a, b)
+    return sort === 'behind' ? timeB - timeA : timeA - timeB
   })
 }

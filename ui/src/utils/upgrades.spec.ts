@@ -8,6 +8,7 @@ import {
   laneReleases,
   nodeUpgrades,
   PoolVersionHistory,
+  reachedAt,
   releaseColors,
   roundAtOrBefore,
   sortLanes,
@@ -307,6 +308,54 @@ describe('adoption and lane order', () => {
     expect(order('adoption')).toEqual([4, 2, 1, 5, 3])
   })
 
+  it('finds when a validator reached a release or a newer one', () => {
+    expect(reachedAt(lane(1), '5.0.3')).toBe(0)
+    expect(reachedAt(lane(1), '5.0.4')).toBe(10 * DAY)
+    expect(reachedAt(lane(2), '5.0.3')).toBe(3 * DAY)
+    expect(reachedAt(lane(3), '5.0.3')).toBeUndefined()
+  })
+
+  it('measures against a picked release', () => {
+    const picked = (sort: Parameters<typeof sortLanes>[1], release: string) =>
+      sortLanes(lanes, sort, stakes, release).map((l) => l.validatorId)
+    // Not on 5.0.4 yet, oldest first; then who reached it latest
+    expect(picked('behind', '5.0.4')).toEqual([3, 5, 1, 2, 4])
+    // Who reached 5.0.4 earliest; then those not on it, newest first
+    expect(picked('adoption', '5.0.4')).toEqual([4, 2, 1, 5, 3])
+    // 1, 4 and 5 were at 5.0.3 or past it from the start, so stake breaks their tie
+    expect(picked('behind', '5.0.3')).toEqual([3, 2, 4, 1, 5])
+    expect(picked('adoption', '5.0.3')).toEqual([4, 1, 5, 2, 3])
+    expect(picked('stake', '5.0.3')).toEqual(order('stake'))
+  })
+
+  it('orders those not on a picked release as with no pick', () => {
+    // 1 and 2 are both on 5.0.3: 2 has more stake but moved onto it later. 3 is on 5.0.4. 4's
+    // only pool stopped reporting, so it has no current release
+    const pools = [
+      pool(1n, 1, 1, V('5.0.3'), []),
+      pool(2n, 2, 1, V('5.0.2'), [[50, 5 * DAY, V('5.0.3')]]),
+      pool(3n, 3, 1, V('5.0.3'), [[80, 8 * DAY, V('5.0.4')]]),
+      pool(4n, 4, 1, V('5.0.4'), [[20, 2 * DAY, '']]),
+    ]
+    const lanes = validatorLanes(pools, nodeUpgrades(pools, 0, 1000n), 0, 30 * DAY, 1000n)
+    const stakes = new Map([
+      [1, 10n],
+      [2, 20n],
+      [3, 5n],
+      [4, 99n],
+    ])
+    const ids = (sort: Parameters<typeof sortLanes>[1], release?: string) =>
+      sortLanes(lanes, sort, stakes, release).map((l) => l.validatorId)
+    expect(ids('adoption')).toEqual([3, 1, 2, 4])
+    // Picking the latest release changes nothing
+    expect(ids('adoption', '5.0.4')).toEqual(ids('adoption'))
+    expect(ids('behind', '5.0.4')).toEqual([2, 1, 3, 4])
+    // No current release goes last whatever is picked
+    expect(ids('adoption', '5.0.3')).toEqual([1, 3, 2, 4])
+    // Everyone with a release has reached 5.0.3: 2 got there latest
+    expect(ids('behind', '5.0.3')).toEqual([2, 1, 3, 4])
+  })
+
   it('finds when each release was first reached', () => {
     expect(Object.fromEntries(firstReached(lanes))).toEqual({
       '5.0.2': 0,
@@ -314,6 +363,44 @@ describe('adoption and lane order', () => {
       '5.0.4': 0,
     })
     expect(firstReached([lane(1), lane(2)]).get('5.0.4')).toBe(3 * DAY)
+  })
+})
+
+describe('reaching a picked release', () => {
+  const lanesOf = (pools: PoolVersionHistory[]) =>
+    validatorLanes(pools, nodeUpgrades(pools, 0, 1000n), 0, 30 * DAY, 1000n)
+
+  it('counts the run after a pool stopped reporting for a while', () => {
+    const [lane] = lanesOf([
+      pool(1n, 1, 1, V('5.0.3'), [
+        [20, 2 * DAY, ''],
+        [60, 6 * DAY, V('5.0.3')],
+      ]),
+    ])
+    expect(reachedAt(lane, '5.0.3')).toBe(6 * DAY)
+    expect(reachedAt(lane, '5.0.2')).toBe(6 * DAY)
+  })
+
+  it('leaves the order alone for a release only some pools run', () => {
+    // Validator 1 has one pool on 5.0.4 and one on 5.0.3, so its lane is on 5.0.3
+    const lanes = lanesOf([
+      pool(1n, 1, 1, V('5.0.3'), [[100, 10 * DAY, V('5.0.4')]]),
+      pool(2n, 1, 2, V('5.0.3'), []),
+      pool(3n, 2, 1, V('5.0.2'), []),
+    ])
+    const stakes = new Map([
+      [1, 10n],
+      [2, 20n],
+    ])
+    for (const sort of ['behind', 'adoption'] as const) {
+      expect(sortLanes(lanes, sort, stakes, '5.0.4')).toEqual(sortLanes(lanes, sort, stakes))
+    }
+  })
+
+  it('counts every parsed release as past one that did not parse', () => {
+    const lanes = lanesOf([pool(1n, 1, 1, V('5.0.3'), []), pool(2n, 2, 1, 'garbled', [])])
+    expect(lanes.map((lane) => reachedAt(lane, 'garbled'))).toEqual([0, 0])
+    expect(lanes.map((lane) => reachedAt(lane, '5.0.3'))).toEqual([0, undefined])
   })
 })
 
