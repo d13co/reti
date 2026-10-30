@@ -21,6 +21,7 @@ const { DT_NODE_WITH_QUERIES } = vi.hoisted(() => ({
       maxRounds: 16,
       maxCallBudget: 320_000,
       maxCallLogBytes: 65_536,
+      maxCallStateBytes: 67_108_864,
       maxResponseBytes: 67_108_864,
     },
   },

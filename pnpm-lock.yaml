@@ -5,8 +5,8 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  algosdk: file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz
-  '@algorandfoundation/algokit-utils': file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz
+  algosdk: file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz
+  '@algorandfoundation/algokit-utils': file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz
 
 importers:
 
@@ -15,15 +15,15 @@ importers:
   contracts:
     dependencies:
       '@algorandfoundation/algokit-utils':
-        specifier: file:../ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz
-        version: '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)'
+        specifier: file:../ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz
+        version: '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)'
       algosdk:
-        specifier: file:../ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz
-        version: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz
+        specifier: file:../ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz
+        version: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz
     devDependencies:
       '@algorandfoundation/algokit-client-generator':
         specifier: 6.0.0
-        version: 6.0.0(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)
+        version: 6.0.0(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)
       '@algorandfoundation/tealscript':
         specifier: 0.106.1
         version: 0.106.1
@@ -67,11 +67,11 @@ importers:
   contracts/bootstrap:
     dependencies:
       '@algorandfoundation/algokit-utils':
-        specifier: file:../../ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz
-        version: '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)'
+        specifier: file:../../ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz
+        version: '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)'
       algosdk:
-        specifier: file:../../ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz
-        version: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz
+        specifier: file:../../ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz
+        version: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz
       prompts:
         specifier: ^2.4.2
         version: 2.4.2
@@ -98,20 +98,20 @@ importers:
   ui:
     dependencies:
       '@algorandfoundation/algokit-utils':
-        specifier: file:vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz
-        version: '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)'
+        specifier: file:vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz
+        version: '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)'
       '@algorandfoundation/xgov-clients':
         specifier: ^3.0.1
-        version: 3.0.1(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)
+        version: 3.0.1(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)
       '@blockshake/defly-connect':
         specifier: 1.2.1
-        version: 1.2.1(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)
+        version: 1.2.1(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)
       '@hookform/resolvers':
         specifier: 3.9.0
         version: 3.9.0(react-hook-form@7.53.0(react@18.3.1))
       '@perawallet/connect':
         specifier: 1.5.2
-        version: 1.5.2(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)
+        version: 1.5.2(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)
       '@radix-ui/react-alert-dialog':
         specifier: ^1.1.5
         version: 1.1.5(@types/react-dom@18.3.0)(@types/react@18.3.11)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -189,7 +189,7 @@ importers:
         version: 3.18.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.13(ts-node@10.9.2(@types/node@20.16.11)(typescript@5.6.3)))
       '@txnlab/use-wallet-react':
         specifier: 4.6.0
-        version: 4.6.0(@blockshake/defly-connect@1.2.1(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz))(@perawallet/connect@1.5.2(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)(lute-connect@1.5.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 4.6.0(@blockshake/defly-connect@1.2.1(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz))(@perawallet/connect@1.5.2(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)(lute-connect@1.5.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@walletconnect/modal':
         specifier: 2.7.0
         version: 2.7.0(@types/react@18.3.11)(react@18.3.1)
@@ -197,8 +197,8 @@ importers:
         specifier: 2.20.2
         version: 2.20.2(typescript@5.6.3)(zod@3.23.8)
       algosdk:
-        specifier: file:vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz
-        version: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz
+        specifier: file:vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz
+        version: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz
       axios:
         specifier: 1.19.0
         version: 1.19.0
@@ -239,8 +239,8 @@ importers:
         specifier: 0.3.0
         version: 0.3.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       nfd-ghost-sdk:
-        specifier: file:vendor/nfd-ghost-sdk-2.0.0-dt.1.tgz
-        version: file:ui/vendor/nfd-ghost-sdk-2.0.0-dt.1.tgz(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)
+        specifier: file:vendor/nfd-ghost-sdk-2.0.0-dt.4.tgz
+        version: file:ui/vendor/nfd-ghost-sdk-2.0.0-dt.4.tgz(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)
       notistack:
         specifier: 3.0.1
         version: 3.0.1(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -263,8 +263,8 @@ importers:
         specifier: 7.53.0
         version: 7.53.0(react@18.3.1)
       reti-ghost-sdk:
-        specifier: file:vendor/reti-ghost-sdk-0.3.0-dt.8.tgz
-        version: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.8.tgz(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)
+        specifier: file:vendor/reti-ghost-sdk-0.3.0-dt.9.tgz
+        version: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.9.tgz(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)
       sonner:
         specifier: 1.5.0
         version: 1.5.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -542,12 +542,12 @@ packages:
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
 
-  '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz':
-    resolution: {integrity: sha512-vfuSSYaEoyXkdOgvsDIib5mLasu7r9fx6qOXRi9WfFEl6a9b5V+ZZ8WFmetGJXf9ghd2C5iSutOzIDCe8RBVVQ==, tarball: file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz}
-    version: 9.2.3-dt.3.0.0.1
+  '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz':
+    resolution: {integrity: sha512-VI2kLqvfBl0hN00V3ssLXvjsqj2c+j93Eatf8oDOl9LqlPNvcQVeM/2e29CoHD1XV+JaCTZr1JNEtu869vbpiA==, tarball: file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz}
+    version: 9.2.3-dt.4.1.0.0
     engines: {node: '>=22.0'}
     peerDependencies:
-      algosdk: ^3.5.2 || ^3.8.0-dt.0 || ^3.9.0-dt.0
+      algosdk: ^3.5.2 || ^3.9.0-dt.4.1.0.0
 
   '@esbuild/aix-ppc64@0.21.5':
     resolution: {integrity: sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==}
@@ -3068,9 +3068,9 @@ packages:
     resolution: {integrity: sha512-ZmdL2rui+eB2YwhsWzjInR8LldtZHGDoQ1ugH85ppHKwpUHL7j7rN0Ti9NCnGiQbhaZ11FpR+7ao1dNsmduNUg==}
     engines: {node: '>=12'}
 
-  dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz:
-    resolution: {integrity: sha512-/lQyLigLlPzwkEyBgdQ892NIwIuJ9cqG8ZlouA/EOEpd9QLZfAwMq0vRAH/ggbYbtJuMGNhKlTjEkCflKC+CPA==, tarball: file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz}
-    version: 3.9.0-dt.3.0.0.1
+  dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz:
+    resolution: {integrity: sha512-+C78ke+iWJWaE2UnncmM0E7WtbBwzsEgElic03CUQnTmVjE8uc4SJ9YNx71q5pp/4IwhyXi7mQiApHNg5QJCGQ==, tarball: file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz}
+    version: 3.9.0-dt.4.1.0.0
     engines: {node: '>=22.0'}
 
   dunder-proto@1.0.1:
@@ -4088,12 +4088,12 @@ packages:
       react: ^16.8 || ^17 || ^18
       react-dom: ^16.8 || ^17 || ^18
 
-  nfd-ghost-sdk@file:ui/vendor/nfd-ghost-sdk-2.0.0-dt.1.tgz:
-    resolution: {integrity: sha512-Y9UaDf3QWnOYSVpUMTfjTIDWheNkydZjJovG6g3w3LswsJ46lb5OJSkpYMscENdwcHdSMsFZbL16/aNtsFApqA==, tarball: file:ui/vendor/nfd-ghost-sdk-2.0.0-dt.1.tgz}
-    version: 2.0.0-dt.1
+  nfd-ghost-sdk@file:ui/vendor/nfd-ghost-sdk-2.0.0-dt.4.tgz:
+    resolution: {integrity: sha512-P/MZ6IiRwsCzZU+ORe6M68rnxviUeiJr25KZZlbF5CFe0xhk6XeZj/PxmLg5CJoUmpfGD+edH0s4eNs8C8TZpw==, tarball: file:ui/vendor/nfd-ghost-sdk-2.0.0-dt.4.tgz}
+    version: 2.0.0-dt.4
     peerDependencies:
-      '@algorandfoundation/algokit-utils': '>=9.2.0'
-      algosdk: '>=3.5.2'
+      '@algorandfoundation/algokit-utils': ^9.2.3-dt.4.1.0.0
+      algosdk: ^3.9.0-dt.4.1.0.0
 
   node-addon-api@7.1.1:
     resolution: {integrity: sha512-5m3bsyrjFWE1xf7nz7YXdN4udnVtXK6/Yfgn5qnahL6bCkf2yKt4k3nuTKAtT4r3IG8JNR2ncsIMdZuAzJjHQQ==}
@@ -4705,9 +4705,9 @@ packages:
     resolution: {integrity: sha512-oKWePCxqpd6FlLvGV1VU0x7bkPmmCNolxzjMf4NczoDnQcIWrAF+cPtZn5i6n+RfD2d9i0tzpKnG6Yk168yIyw==}
     hasBin: true
 
-  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.8.tgz:
-    resolution: {integrity: sha512-4hK+3vlxvszwzBMW+GCqIevxXVel/2w1GnR9x76ElfOi/7egiarJ//3sBFxZrG3qh6+Ft5Uld9JPk8CGaw4VzA==, tarball: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.8.tgz}
-    version: 0.3.0-dt.8
+  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.9.tgz:
+    resolution: {integrity: sha512-2vcg6rcvV6RqTZhIqlGWWdG5N/DKPeHalTKcOFIUpmsa6dQRCtWHBv6f0u7JRSriurej8rJvkMXGVtXcER5LFw==, tarball: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.9.tgz}
+    version: 0.3.0-dt.9
     peerDependencies:
       '@algorandfoundation/algokit-utils': '>=9.2.0'
       algosdk: '>=3.5.2'
@@ -5560,10 +5560,10 @@ snapshots:
 
   '@adraffy/ens-normalize@1.11.0': {}
 
-  '@algorandfoundation/algokit-client-generator@6.0.0(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)':
+  '@algorandfoundation/algokit-client-generator@6.0.0(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)':
     dependencies:
-      '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)'
-      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz
+      '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)'
+      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz
       chalk: 5.6.0
       change-case: 5.4.4
       commander: 14.0.0
@@ -5587,10 +5587,10 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@algorandfoundation/xgov-clients@3.0.1(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)':
+  '@algorandfoundation/xgov-clients@3.0.1(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)':
     dependencies:
-      '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)'
-      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz
+      '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)'
+      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz
 
   '@alloc/quick-lru@5.2.0': {}
 
@@ -5738,12 +5738,12 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@blockshake/defly-connect@1.2.1(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)':
+  '@blockshake/defly-connect@1.2.1(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)':
     dependencies:
       '@likecoin/qr-code-styling': 1.6.6
       '@walletconnect/client': 1.8.0
       '@walletconnect/types': 1.8.0
-      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz
+      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz
       bowser: 2.11.0
       buffer: 6.0.3
       lottie-web: 5.12.2
@@ -5774,9 +5774,9 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
-  '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)':
+  '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)':
     dependencies:
-      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz
+      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz
       buffer: 6.0.3
 
   '@esbuild/aix-ppc64@0.21.5':
@@ -6259,12 +6259,12 @@ snapshots:
       '@parcel/watcher-win32-ia32': 2.4.1
       '@parcel/watcher-win32-x64': 2.4.1
 
-  '@perawallet/connect@1.5.2(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)':
+  '@perawallet/connect@1.5.2(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)':
     dependencies:
       '@evanhahn/lottie-web-light': 5.8.1
       '@walletconnect/client': 1.8.0
       '@walletconnect/types': 1.8.0
-      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz
+      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz
       bowser: 2.11.0
       buffer: 6.0.3
       qr-code-styling: 1.6.0-rc.1
@@ -7139,16 +7139,16 @@ snapshots:
 
   '@tsconfig/node18@18.2.4': {}
 
-  '@txnlab/use-wallet-react@4.6.0(@blockshake/defly-connect@1.2.1(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz))(@perawallet/connect@1.5.2(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)(lute-connect@1.5.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@txnlab/use-wallet-react@4.6.0(@blockshake/defly-connect@1.2.1(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz))(@perawallet/connect@1.5.2(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)(lute-connect@1.5.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@tanstack/react-store': 0.8.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@txnlab/use-wallet': 4.6.0(@blockshake/defly-connect@1.2.1(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz))(@perawallet/connect@1.5.2(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)(lute-connect@1.5.1)
-      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz
+      '@txnlab/use-wallet': 4.6.0(@blockshake/defly-connect@1.2.1(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz))(@perawallet/connect@1.5.2(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)(lute-connect@1.5.1)
+      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
     optionalDependencies:
-      '@blockshake/defly-connect': 1.2.1(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)
-      '@perawallet/connect': 1.5.2(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)
+      '@blockshake/defly-connect': 1.2.1(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)
+      '@perawallet/connect': 1.5.2(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)
       '@walletconnect/modal': 2.7.0(@types/react@18.3.11)(react@18.3.1)
       '@walletconnect/sign-client': 2.20.2(typescript@5.6.3)(zod@3.23.8)
       lute-connect: 1.5.1
@@ -7159,13 +7159,13 @@ snapshots:
       - '@web3auth/modal'
       - '@web3auth/single-factor-auth'
 
-  '@txnlab/use-wallet@4.6.0(@blockshake/defly-connect@1.2.1(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz))(@perawallet/connect@1.5.2(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)(lute-connect@1.5.1)':
+  '@txnlab/use-wallet@4.6.0(@blockshake/defly-connect@1.2.1(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz))(@perawallet/connect@1.5.2(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)(lute-connect@1.5.1)':
     dependencies:
       '@tanstack/store': 0.8.0
-      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz
+      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz
     optionalDependencies:
-      '@blockshake/defly-connect': 1.2.1(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)
-      '@perawallet/connect': 1.5.2(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)
+      '@blockshake/defly-connect': 1.2.1(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)
+      '@perawallet/connect': 1.5.2(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)
       '@walletconnect/modal': 2.7.0(@types/react@18.3.11)(react@18.3.1)
       '@walletconnect/sign-client': 2.20.2(typescript@5.6.3)(zod@3.23.8)
       lute-connect: 1.5.1
@@ -8457,7 +8457,7 @@ snapshots:
 
   dotenv@16.4.5: {}
 
-  dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz:
+  dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz:
     dependencies:
       algorand-msgpack: 1.1.0
       hi-base32: 0.5.1
@@ -9632,10 +9632,10 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
-  nfd-ghost-sdk@file:ui/vendor/nfd-ghost-sdk-2.0.0-dt.1.tgz(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz):
+  nfd-ghost-sdk@file:ui/vendor/nfd-ghost-sdk-2.0.0-dt.4.tgz(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz):
     dependencies:
-      '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)'
-      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz
+      '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)'
+      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz
 
   node-addon-api@7.1.1: {}
 
@@ -10268,10 +10268,10 @@ snapshots:
       path-parse: 1.0.7
       supports-preserve-symlinks-flag: 1.0.0
 
-  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.8.tgz(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz):
+  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.9.tgz(@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz))(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz):
     dependencies:
-      '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.3.0.0.1.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz)'
-      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.3.0.0.1.tgz
+      '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@file:ui/vendor/d13co-dt-algokit-utils-9.2.3-dt.4.1.0.0.tgz(dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz)'
+      algosdk: dtalgosdk@file:ui/vendor/dtalgosdk-3.9.0-dt.4.1.0.0.tgz
 
   reusify@1.0.4: {}
 
