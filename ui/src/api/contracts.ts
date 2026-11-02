@@ -53,29 +53,23 @@ export async function fetchNumValidators(round?: bigint): Promise<number> {
  * Fetches config, state, pools and node/pool assignments for EVERY validator, as of `round` (the
  * latest state when undefined).
  *
- * One registry global state read for the count, then one batched read of the ghost reader for
- * every validator (~300ms for all of MainNet), consistent at a single round.
+ * One request: the registry's count and every validator in one batched read of the ghost reader,
+ * consistent at a single round.
  */
 export async function fetchAllValidatorData(
   round?: bigint,
   signal?: AbortSignal,
 ): Promise<ValidatorCoreData[]> {
-  const sdk = sdkAt(round)
-  const numValidators = await sdk.getNumValidators({ signal })
-  signal?.throwIfAborted()
-  if (numValidators === 0) {
-    return []
-  }
-  const ids = Array.from({ length: numValidators }, (_, i) => i + 1)
-  const validators = await sdk.getValidators(ids, { signal })
+  const validators = await sdkAt(round).getAllValidators({ signal })
 
+  // Ids run from 1 to the count, in order
   return validators
     .map((validator, i) => {
       try {
-        return ghostValidatorToParts(ids[i], validator)
+        return ghostValidatorToParts(i + 1, validator)
       } catch (error) {
         // Drop the one validator rather than failing the whole dashboard
-        console.warn(`Skipping validator ${ids[i]}, could not be read:`, error)
+        console.warn(`Skipping validator ${i + 1}, could not be read:`, error)
         return null
       }
     })

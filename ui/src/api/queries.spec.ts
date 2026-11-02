@@ -97,33 +97,32 @@ describe('allValidatorsQueryOptions', () => {
     const queryClient = new QueryClient()
     await queryClient.fetchQuery(allValidatorsQueryOptions(queryClient))
 
-    expect(mockSdk.getNumValidators).toHaveBeenCalledWith({ signal: undefined })
-    expect(mockSdk.getValidators).toHaveBeenCalledWith([1, 2], { signal: undefined })
+    expect(mockSdk.getAllValidators).toHaveBeenCalledWith({ signal: undefined })
   })
 
-  it('cancels a pinned read once nothing shows it, before it reads the validators', async () => {
-    let release: (count: number) => void = () => {}
-    mockSdk.getNumValidators.mockImplementationOnce(
-      () => new Promise<number>((resolve) => (release = resolve)),
-    )
+  it('cancels a pinned read once nothing shows it, and seeds nothing from it', async () => {
+    let release: () => void = () => {}
+    mockSdk.getAllValidators.mockImplementationOnce(async () => {
+      await new Promise<void>((resolve) => (release = resolve))
+      return mockSdk.getValidators.getMockImplementation()!([1, 2])
+    })
     const queryClient = new QueryClient()
     const observer = new QueryObserver(
       queryClient,
       allValidatorsQueryOptions(queryClient, 50_000_000n),
     )
     const unsubscribe = observer.subscribe(() => {})
-    await vi.waitFor(() => expect(mockSdk.getNumValidators).toHaveBeenCalled())
-    const [options] = mockSdk.getNumValidators.mock.calls[0] as unknown as [
+    await vi.waitFor(() => expect(mockSdk.getAllValidators).toHaveBeenCalled())
+    const [options] = mockSdk.getAllValidators.mock.calls[0] as unknown as [
       { signal?: AbortSignal },
     ]
     expect(options.signal).toBeInstanceOf(AbortSignal)
 
     unsubscribe()
     expect(options.signal?.aborted).toBe(true)
-    release(2)
+    release()
     await new Promise((resolve) => setTimeout(resolve, 0))
 
-    expect(mockSdk.getValidators).not.toHaveBeenCalled()
     // Nothing seeded from a cancelled read
     expect(queryClient.getQueryData(['validator-config', '1', 'round:50000000'])).toBeUndefined()
   })

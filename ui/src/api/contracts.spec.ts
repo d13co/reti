@@ -56,8 +56,9 @@ describe('fetchAllValidatorData', () => {
     const validators = await fetchAllValidatorData(PAST_ROUND)
 
     expect(sdkAt).toHaveBeenCalledWith(PAST_ROUND)
-    expect(mockSdk.getValidators).toHaveBeenCalledTimes(1)
-    expect(mockSdk.getValidators).toHaveBeenCalledWith([1, 2], { signal: undefined })
+    expect(mockSdk.getAllValidators).toHaveBeenCalledTimes(1)
+    expect(mockSdk.getAllValidators).toHaveBeenCalledWith({ signal: undefined })
+    expect(mockSdk.getNumValidators).not.toHaveBeenCalled()
     expect(validators.map((validator) => validator.id)).toEqual([1, 2])
     expect(validators[0].config).toEqual(MOCK_VALIDATOR_1_CONFIG)
     expect(validators[1].config).toEqual(MOCK_VALIDATOR_2_CONFIG)
@@ -70,11 +71,10 @@ describe('fetchAllValidatorData', () => {
     expect(sdkAt).toHaveBeenCalledWith(undefined)
   })
 
-  it('returns no validators for an empty registry without reading any', async () => {
-    mockSdk.getNumValidators.mockResolvedValueOnce(0)
+  it('returns no validators for an empty registry', async () => {
+    mockSdk.getAllValidators.mockResolvedValueOnce([])
 
     expect(await fetchAllValidatorData()).toEqual([])
-    expect(mockSdk.getValidators).not.toHaveBeenCalled()
   })
 })
 

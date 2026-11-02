@@ -117,6 +117,11 @@ function createMockSdk() {
         }
       }),
     ),
+    // The count and every validator in one read, as the SDK does
+    getAllValidators: vi.fn(
+      async (): Promise<Awaited<ReturnType<typeof sdk.getValidators>>> =>
+        sdk.getValidators.getMockImplementation()!(MOCK_VALIDATORS.map((_, i) => i + 1)),
+    ),
     getPoolStates: vi.fn(async (poolAppIds: (number | bigint)[]) =>
       poolAppIds.map((id) => mockPoolState(BigInt(id))),
     ),

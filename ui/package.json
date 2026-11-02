@@ -94,7 +94,7 @@
     "react-dom": "18.3.1",
     "react-helmet-async": "2.0.5",
     "react-hook-form": "7.53.0",
-    "reti-ghost-sdk": "file:vendor/reti-ghost-sdk-0.3.0-dt.10.tgz",
+    "reti-ghost-sdk": "file:vendor/reti-ghost-sdk-0.3.0-dt.11.tgz",
     "sonner": "1.5.0",
     "tailwind-merge": "2.5.3",
     "tailwindcss-animate": "1.0.7",
