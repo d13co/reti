@@ -360,13 +360,18 @@ export const ValidatorTable = React.memo(function ValidatorTable({
         header: ({ column }) => <DataTableColumnHeader column={column} title="Est. APY" />,
         cell: ({ row }) => {
           if (!row.original.apy) return <span className="text-muted-foreground">--</span>
+          const apy = (
+            <span>
+              {formatAmount(row.original.apy < 0 ? 0 : row.original.apy, { precision: 1 })}%
+            </span>
+          )
+          // Only Nodely's APY, read on a node without time travel, counts external deposits
+          if (row.original.extDeposits === undefined) return apy
           return (
             <Tooltip
-              content={`${formatAmount(Number(row.original.extDeposits), { precision: 2 })} in extra deposits`}
+              content={`${formatAmount(row.original.extDeposits, { precision: 2 })} in extra deposits`}
             >
-              <span>
-                {formatAmount(row.original.apy < 0 ? 0 : row.original.apy, { precision: 1 })}%
-              </span>
+              {apy}
             </Tooltip>
           )
         },

@@ -88,6 +88,15 @@ describe('assembleValidators', () => {
     expect(apy({ nodely: [{ apy: 6 }], realisedApyById: new Map([[1, null]]) })).toBe(6)
   })
 
+  it("takes external deposits only from Nodely, never the metrics' placeholder", () => {
+    const metrics = [{ rewardsBalance: 5n, roundsSinceLastPayout: 3n, apy: 4, extDeposits: NaN }]
+    const one = [core(1)]
+    const deposits = (extras: Parameters<typeof enrichment>[0]) =>
+      assembleValidators(one, enrichment({ metrics, ...extras }), NO_VALIDATORS).list[0].extDeposits
+    expect(deposits({})).toBeUndefined()
+    expect(deposits({ nodely: [{ apy: 6, extDeposits: 2 }] })).toBe(2)
+  })
+
   it('picks up reward tokens, gating assets and perf, and drops perf at a past round', () => {
     const one = [
       core(1, {

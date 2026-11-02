@@ -20,6 +20,7 @@ import {
   validatorPoolsQueryOptions,
   validatorStateQueryOptions,
 } from '@/api/queries'
+import { timeTravelSupportQueryOptions } from '@/api/reti'
 import { GatingType } from '@/constants/gating'
 import { useAtRound } from '@/hooks/useAtRound'
 import { useExtrasReady } from '@/hooks/useExtrasReady'
@@ -105,12 +106,14 @@ export function useValidator(validatorId: number): ValidatorView {
     }),
   )
 
-  // Nodely's realtime APY: only now, and only once the rest of the page and its charts have loaded.
-  // Shown where there's no realised APY; until either loads, the APY is the pools' on-chain moving
-  // average, from the metrics above.
+  // Nodely's realtime APY: only now, only on a node without time travel (with it, the realised
+  // APY below takes its place), and only once the rest of the page and its charts have loaded.
+  // Until either loads, the APY is the pools' on-chain moving average, from the metrics above.
+  const timeTravelSupportQuery = useQuery(timeTravelSupportQueryOptions)
   const nodelyApyQuery = useQuery({
     ...nodelyApyQueryOptions(validatorId, queryClient, poolsQuery.data ?? []),
-    enabled: extrasReady && !pinned && coreFresh,
+    enabled:
+      extrasReady && !pinned && coreFresh && timeTravelSupportQuery.data?.supported === false,
   })
 
   // The APY stakers actually earned lately, which the page shows wherever it can: the on-chain
@@ -193,7 +196,7 @@ export function useValidator(validatorId: number): ValidatorView {
       baseValidator.roundsSinceLastPayout = metricsQuery.data.roundsSinceLastPayout
       const nodely = pinned ? undefined : nodelyApyQuery.data
       baseValidator.apy = realisedApyQuery.data ?? nodely?.apy ?? metricsQuery.data.apy
-      baseValidator.extDeposits = nodely?.extDeposits ?? metricsQuery.data.extDeposits
+      baseValidator.extDeposits = nodely?.extDeposits
     }
 
     return baseValidator

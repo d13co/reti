@@ -500,10 +500,10 @@ export const realisedApyQueryOptions = (
   })
 
 /**
- * A validator's APY by Nodely's realtime figures, which also count external deposits: shown when
- * there's no realised APY (a node without time travel), in place of the on-chain moving average
- * its metrics carry, and the source of the external deposits either way. Nodely can be wrong: it
- * has reported ~5% for a pool offline for a month. One Nodely request per counted pool, so
+ * A validator's APY by Nodely's realtime figures, which also count external deposits: read only
+ * on a node without time travel, which can't give the realised APY, in place of the on-chain
+ * moving average its metrics carry. Nodely can be wrong: it has reported ~5% for a pool offline
+ * for a month. One Nodely request per counted pool, so
  * callers hold it back until the rest of the page has loaded (`useExtrasReady`). Nodely only
  * answers "now": never use it at a pinned round.
  */

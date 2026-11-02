@@ -17,6 +17,7 @@ import {
   realisedApyQueryOptions,
   validatorMetricsQueryOptions,
 } from '@/api/queries'
+import { timeTravelSupportQueryOptions } from '@/api/reti'
 import { GatingType } from '@/constants/gating'
 import { useAtRound } from '@/hooks/useAtRound'
 import { useQueuedQueries } from '@/hooks/useQueuedQueries'
@@ -180,25 +181,27 @@ export function useValidators(): {
   })
   const metrics = bulkPoolStates ? directMetrics : queuedMetricsQueries.data
 
-  // Nodely's realtime APY, one validator per batch slot. The list stays empty until the extras
-  // may start: the queue releases on a timer, so queries handed to it disabled would all fire
-  // at once when enabled.
+  // Nodely's realtime APY, one validator per batch slot, only on a node without time travel: with
+  // it, the realised APY below takes its place. The list stays empty until the extras may start:
+  // the queue releases on a timer, so queries handed to it disabled would all fire at once when
+  // enabled.
+  const timeTravelSupportQuery = useQuery(timeTravelSupportQueryOptions)
+  const nodelyApyReady = nodelyReady && timeTravelSupportQuery.data?.supported === false
   const nodelyApyQueries = React.useMemo(
     () =>
-      nodelyReady && !poolGlobalStatesQuery.isPending
+      nodelyApyReady && !poolGlobalStatesQuery.isPending
         ? validatorData.map((validator) =>
             nodelyApyQueryOptions(validator.id, queryClient, validator.pools),
           )
         : [],
-    [nodelyReady, poolGlobalStatesQuery.isPending, validatorData, queryClient],
+    [nodelyApyReady, poolGlobalStatesQuery.isPending, validatorData, queryClient],
   )
   // Nodely failures are swallowed by fetchNodelyVotingPerf, so there's no host to learn from
   const queuedNodelyApyQueries = useQueuedQueries(nodelyApyQueries, { maxBatchSize: 6 })
 
-  // What stakers earned lately, the APY the table shows wherever it can: the on-chain average
-  // swings day to day, and reads too high for validators paying out less than daily (see
-  // realisedApyQueryOptions). Held back like Nodely's, but at any round: past rounds have nothing
-  // better. All at once, not queued: the SDK batches every pool's staker list at a round into one
+  // What stakers earned lately, the APY the table shows wherever the node can read past rounds:
+  // the on-chain average swings day to day, and reads too high for validators paying out less
+  // than daily (see realisedApyQueryOptions). Held back like Nodely's, but at any round. All at once, not queued: the SDK batches every pool's staker list at a round into one
   // query, so the whole table costs a few requests, and metering it would only spread them out.
   const realisedApyTargets = React.useMemo(
     () => (extrasReady && poolGlobalStatesQuery.isSuccess ? validatorData : []),
