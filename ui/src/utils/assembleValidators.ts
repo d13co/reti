@@ -136,7 +136,8 @@ export function assembleValidators(
       if (metrics) {
         validator.rewardsBalance = metrics.rewardsBalance
         validator.roundsSinceLastPayout = metrics.roundsSinceLastPayout
-        validator.apy = nodely?.apy ?? realised ?? metrics.apy
+        // What stakers earned, then Nodely's (live only), then the on-chain moving average
+        validator.apy = realised ?? nodely?.apy ?? metrics.apy
         validator.extDeposits = nodely?.extDeposits ?? metrics.extDeposits
       }
     }

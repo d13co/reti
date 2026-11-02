@@ -12,7 +12,6 @@ import {
   assetQueryOptions,
   nfdQueryOptions,
   nodelyApyQueryOptions,
-  hasLongEpoch,
   realisedApyQueryOptions,
   validatorConfigQueryOptions,
   validatorMetricsQueryOptions,
@@ -107,15 +106,17 @@ export function useValidator(validatorId: number): ValidatorView {
   )
 
   // Nodely's realtime APY: only now, and only once the rest of the page and its charts have loaded.
-  // Until then the APY is the pools' on-chain moving average, from the metrics above.
+  // Shown where there's no realised APY; until either loads, the APY is the pools' on-chain moving
+  // average, from the metrics above.
   const nodelyApyQuery = useQuery({
     ...nodelyApyQueryOptions(validatorId, queryClient, poolsQuery.data ?? []),
     enabled: extrasReady && !pinned && coreFresh,
   })
 
-  // For validators paying out less than daily, the APY stakers actually earned lately: their
-  // on-chain average reads too high. A few reads, once the rest of the page and its charts have
-  // loaded. Not kept across rounds: until it loads, the metrics' corrected average stands in.
+  // The APY stakers actually earned lately, which the page shows wherever it can: the on-chain
+  // average swings day to day, and reads too high for validators paying out less than daily. A
+  // few reads, once the rest of the page and its charts have loaded. Not kept across rounds: until
+  // it loads, the metrics' corrected average stands in.
   const epochRoundLength = configQuery.data?.epochRoundLength ?? 0
   const realisedApyQuery = useQuery({
     ...realisedApyQueryOptions(
@@ -124,11 +125,7 @@ export function useValidator(validatorId: number): ValidatorView {
       { pools: poolsQuery.data ?? [], epochRoundLength },
       round,
     ),
-    enabled:
-      extrasReady &&
-      coreFresh &&
-      poolGlobalStatesSettled &&
-      hasLongEpoch(poolsQuery.data ?? [], epochRoundLength, poolGlobalStatesQuery.data),
+    enabled: extrasReady && coreFresh && poolGlobalStatesSettled && !!poolsQuery.data,
   })
 
   // Reward token query
@@ -195,7 +192,7 @@ export function useValidator(validatorId: number): ValidatorView {
       baseValidator.rewardsBalance = metricsQuery.data.rewardsBalance
       baseValidator.roundsSinceLastPayout = metricsQuery.data.roundsSinceLastPayout
       const nodely = pinned ? undefined : nodelyApyQuery.data
-      baseValidator.apy = nodely?.apy ?? realisedApyQuery.data ?? metricsQuery.data.apy
+      baseValidator.apy = realisedApyQuery.data ?? nodely?.apy ?? metricsQuery.data.apy
       baseValidator.extDeposits = nodely?.extDeposits ?? metricsQuery.data.extDeposits
     }
 

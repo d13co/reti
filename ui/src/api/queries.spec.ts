@@ -190,7 +190,33 @@ describe('realisedApyQueryOptions', () => {
     )
   })
 
-  it('keeps the corrected average when the window holds fewer than two payouts', async () => {
+  it('starts a pinned window on a multiple of 10,000 rounds, and measures from there', async () => {
+    const pinned = ROUND + 3_456n
+    vi.mocked(sdkAt).mockImplementation(
+      (round) =>
+        ({
+          ...mockSdk,
+          getPoolStakers: vi.fn(async () =>
+            round === START ? [staker(1_000_000_000n, 0n)] : [staker(1_005_000_000n, 5_000_000n)],
+          ),
+        }) as unknown as RetiGhostSDK,
+    )
+    const queryClient = client()
+    queryClient.setQueryData(poolGlobalStatesQueryOptions(queryClient, pinned).queryKey, states)
+
+    const apy = await queryClient.fetchQuery(
+      realisedApyQueryOptions(1, queryClient, { pools: POOLS, epochRoundLength: EPOCH }, pinned),
+    )
+
+    // pinned - 30 days is START + 3,456, rounded down to START; the window is 30 days and 3,456 rounds
+    const days = Number(pinned - START) / Number(PER_DAY)
+    expect(apy).toBeCloseTo(0.5 * (365 / days), 6)
+    expect(vi.mocked(sdkAt).mock.calls.map(([round]) => round)).toEqual(
+      expect.arrayContaining([START, pinned]),
+    )
+  })
+
+  it('has no figure when the window holds fewer than two payouts: the corrected average shows', async () => {
     stakersEarningHalfAPercent()
     // The registry is only 5 days old at ROUND
     const queryClient = client(5n)
@@ -199,7 +225,7 @@ describe('realisedApyQueryOptions', () => {
       realisedApyQueryOptions(1, queryClient, { pools: POOLS, epochRoundLength: EPOCH }, ROUND),
     )
 
-    expect(apy).toBeCloseTo(18 / 3, 6)
+    expect(apy).toBeNull()
   })
 
   it("reads nothing on a node that can't read past rounds", async () => {
@@ -215,16 +241,33 @@ describe('realisedApyQueryOptions', () => {
     expect(sdkAt).not.toHaveBeenCalled()
   })
 
-  it('reads nothing for a validator paying out daily or more often', async () => {
+  it('measures a validator paying out several times a day over 30 days too', async () => {
+    stakersEarningHalfAPercent()
     const queryClient = client()
-    mockSdk.getPoolStakers.mockClear()
+
+    const apy = await queryClient.fetchQuery(
+      realisedApyQueryOptions(1, queryClient, { pools: POOLS, epochRoundLength: 1000 }, ROUND),
+    )
+
+    expect(apy).toBeCloseTo(0.5 * (365 / 30), 6)
+  })
+
+  it('is null when no pool has a figure, so the next source shows', async () => {
+    vi.mocked(sdkAt).mockImplementation(
+      () =>
+        ({
+          ...mockSdk,
+          // nobody in the pool at the window's start: no staker to measure by
+          getPoolStakers: vi.fn(async () => []),
+        }) as unknown as RetiGhostSDK,
+    )
+    const queryClient = client()
 
     const apy = await queryClient.fetchQuery(
       realisedApyQueryOptions(1, queryClient, { pools: POOLS, epochRoundLength: 1000 }, ROUND),
     )
 
     expect(apy).toBeNull()
-    expect(mockSdk.getPoolStakers).not.toHaveBeenCalled()
   })
 })
 

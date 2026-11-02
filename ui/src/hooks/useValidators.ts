@@ -13,7 +13,6 @@ import {
   nfdSupportQueryOptions,
   nodelyApyQueryOptions,
   nodelyPerfMetricsQueryOptions,
-  hasLongEpoch,
   poolGlobalStatesQueryOptions,
   realisedApyQueryOptions,
   validatorMetricsQueryOptions,
@@ -156,8 +155,8 @@ export function useValidators(): {
 
   // Nodely only describes today, so none of it is read at a past round. It is also the slowest
   // and least important read on the page (one request per pool), so it waits until the rest of
-  // the page and its charts have loaded; until then the APY column shows the pools' on-chain
-  // moving average.
+  // the page and its charts have loaded. Its APY only shows where there's no realised APY; until
+  // either loads, the APY column shows the pools' on-chain moving average.
   const nodelyReady = extrasReady && !pinned
   const nodelyPerfQuery = useQuery({ ...nodelyPerfMetricsQueryOptions(), enabled: nodelyReady })
 
@@ -196,21 +195,14 @@ export function useValidators(): {
   // Nodely failures are swallowed by fetchNodelyVotingPerf, so there's no host to learn from
   const queuedNodelyApyQueries = useQueuedQueries(nodelyApyQueries, { maxBatchSize: 6 })
 
-  // What stakers earned lately, for the few validators paying out less than daily: their
-  // on-chain average reads too high (see realisedApyQueryOptions). Held back like Nodely's, but
-  // at any round: past rounds have nothing better.
+  // What stakers earned lately, the APY the table shows wherever it can: the on-chain average
+  // swings day to day, and reads too high for validators paying out less than daily (see
+  // realisedApyQueryOptions). Held back like Nodely's, but at any round: past rounds have nothing
+  // better. All at once, not queued: the SDK batches every pool's staker list at a round into one
+  // query, so the whole table costs a few requests, and metering it would only spread them out.
   const realisedApyTargets = React.useMemo(
-    () =>
-      extrasReady && poolGlobalStatesQuery.isSuccess
-        ? validatorData.filter((validator) =>
-            hasLongEpoch(
-              validator.pools,
-              validator.config.epochRoundLength,
-              poolGlobalStatesQuery.data,
-            ),
-          )
-        : [],
-    [extrasReady, poolGlobalStatesQuery.isSuccess, poolGlobalStatesQuery.data, validatorData],
+    () => (extrasReady && poolGlobalStatesQuery.isSuccess ? validatorData : []),
+    [extrasReady, poolGlobalStatesQuery.isSuccess, validatorData],
   )
   const realisedApyQueries = React.useMemo(
     () =>
@@ -224,16 +216,10 @@ export function useValidators(): {
       ),
     [realisedApyTargets, queryClient, round],
   )
-  const queuedRealisedApyQueries = useQueuedQueries(realisedApyQueries, {
-    host: 'algod',
-    maxBatchSize: 3,
-  })
+  const realisedApyData = useQueries({ queries: realisedApyQueries, combine: dataOf })
   const realisedApyById = React.useMemo(
-    () =>
-      new Map(
-        realisedApyTargets.map((validator, i) => [validator.id, queuedRealisedApyQueries.data[i]]),
-      ),
-    [realisedApyTargets, queuedRealisedApyQueries.data],
+    () => new Map(realisedApyTargets.map((validator, i) => [validator.id, realisedApyData[i]])),
+    [realisedApyTargets, realisedApyData],
   )
 
   // The last build, so the next one can keep the objects of validators nothing changed for

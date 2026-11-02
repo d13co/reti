@@ -831,8 +831,16 @@ export function epochAdjustedApy(
   return days > 1 ? apy / days : apy
 }
 
-/** How far back a long-epoch pool's yield is measured: enough for a few payouts. */
+/** How far back a pool's yield is measured: enough for a few payouts. */
 export const REALISED_APY_DAYS = 30
+
+/**
+ * The least share of a pool's stake at the window's start that the stakers counted must hold.
+ * Rewards a staker forfeits for part of an epoch go to the others, so where big stakers come and go
+ * the few who hold still earn far more than the pool does: MainNet pools under ~25% read 1.5 to 15
+ * points above their average, pools over half within about one.
+ */
+export const REALISED_MIN_SHARE = 0.5
 
 /** A staker's entry in a pool, as far as the yield it earned goes */
 type StakerBalance = { account: string; balance: bigint; totalRewarded: bigint }
@@ -840,7 +848,8 @@ type StakerBalance = { account: string; balance: bigint; totalRewarded: bigint }
 /**
  * The yearly yield, in percent, a pool's stakers earned between two reads of its staker list
  * `days` apart. Only stakers in both reads whose balance grew by exactly their rewards count:
- * anyone who added or removed stake in between would skew it. Undefined when nobody qualifies.
+ * anyone who added or removed stake in between would skew it. Undefined when nobody qualifies,
+ * or those who do held less than {@link REALISED_MIN_SHARE} of the stake at the start.
  */
 export function realisedApy(
   before: StakerBalance[],
@@ -858,6 +867,9 @@ export function realisedApy(
     staked += then.balance
     earned += rewarded
   }
-  if (staked === 0n || days <= 0) return undefined
+  const total = before.reduce((sum, staker) => sum + staker.balance, 0n)
+  if (staked === 0n || days <= 0 || Number(staked) < REALISED_MIN_SHARE * Number(total)) {
+    return undefined
+  }
   return (Number(earned) / Number(staked)) * (365 / days) * 100
 }

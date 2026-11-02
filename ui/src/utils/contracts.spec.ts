@@ -733,14 +733,24 @@ describe('realisedApy', () => {
   })
 
   it('leaves out stakers who added or removed stake, and those who joined or left', () => {
-    const before = [staker('A', 1_000_000, 0), staker('B', 1_000_000, 0), staker('C', 1, 0)]
+    const before = [staker('A', 1_000_000, 0), staker('B', 900_000, 0), staker('C', 1, 0)]
     const after = [
       staker('A', 1_010_000, 10_000),
       // Added 500,000 on top of 10,000 rewards
-      staker('B', 1_510_000, 10_000),
+      staker('B', 1_410_000, 10_000),
       staker('D', 9_000_000, 0),
     ]
     expect(realisedApy(before, after, 365)).toBeCloseTo(1, 6)
+  })
+
+  it('has no figure when those who held still had less than half the stake', () => {
+    // A held still with 10% of the stake and collected what B forfeited by leaving early
+    const before = [staker('A', 100_000, 0), staker('B', 900_000, 0)]
+    const after = [staker('A', 110_000, 10_000)]
+    expect(realisedApy(before, after, 30)).toBeUndefined()
+    // At exactly half, it counts
+    const even = [staker('A', 500_000, 0), staker('B', 500_000, 0)]
+    expect(realisedApy(even, [staker('A', 505_000, 5_000)], 365)).toBeCloseTo(1, 6)
   })
 
   it('has no figure when nobody qualifies', () => {

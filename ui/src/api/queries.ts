@@ -329,33 +329,24 @@ async function metricsPoolData(
     .filter((pool) => pool.balance >= AlgoAmount.Algos(30_000).microAlgos)
 }
 
-/** Whether any of a validator's pools pays out less than daily, by the bulk pool state. */
-export function hasLongEpoch(
-  pools: LocalPoolInfo[],
-  epochRoundLength: number,
-  poolGlobalStates: PoolGlobalStates | undefined,
-): boolean {
-  return pools.some(
-    (pool) =>
-      epochDays(epochRoundLength, poolGlobalStates?.[String(pool.poolAppId)]?.roundsPerDay) > 1,
-  )
-}
-
 /**
- * Live windows start on a multiple of this, so the read at their start stays cached between
- * refreshes rather than moving with every new round.
+ * Windows start on a multiple of this: live, so the read at their start stays cached between
+ * refreshes rather than moving with every new round; and at any round, so validators whose windows
+ * start near each other read their stakers there in one batched query (see `getPoolStakers`).
  */
 const REALISED_START_STEP = 10_000n
 
 /**
  * A validator's APY from what its stakers earned over the last {@link REALISED_APY_DAYS} days
- * (or three epochs, if longer), for validators that pay out less than daily: their on-chain
- * moving average reads several times too high, and even corrected (`epochAdjustedApy`) it is
- * rough. Two staker-list reads per such
- * pool, at the round shown and the window's start; the one at the round shown is the Staking
- * Details' own. A pool with no figure (younger than two epochs in the window, or with every
- * staker adding or removing stake in it) keeps its corrected average. Null when no counted pool
- * has a long epoch, or the read node can't read past rounds.
+ * (or three epochs, if longer): the figure the dashboard shows wherever it can. The pools' on-chain
+ * moving average swings day to day (a pool over 300k ALGO weighs each new day at 90%), and for
+ * pools paying out less than daily it reads several times too high, even corrected
+ * (`epochAdjustedApy`). Two staker-list reads per pool, at the round shown and the window's start;
+ * the one at the round shown is the Staking Details' own. The SDK batches every pool's read at a
+ * round into one query, so all validators at once cost a few requests. A pool with no figure
+ * (younger than the window or two epochs, or with every staker adding or removing stake in it)
+ * keeps its corrected average. Null when no pool has a figure, or the read node can't read past
+ * rounds.
  */
 export const realisedApyQueryOptions = (
   validatorId: number,
@@ -379,20 +370,18 @@ export const realisedApyQueryOptions = (
         epochRoundLength,
         signal,
       )
-      if (!poolsData.some((pool) => epochDays(epochRoundLength, pool.roundsPerDay) > 1)) {
-        return null
-      }
       const end = round ?? (await latestReadRound())
 
+      let anyMeasured = false
       const measured = await Promise.all(
         poolsData.map(async (pool): Promise<PoolData> => {
           const days = epochDays(epochRoundLength, pool.roundsPerDay)
-          if (days <= 1 || !pool.poolAppId) return pool
+          if (!pool.poolAppId) return pool
           const perDay = pool.roundsPerDay || APPROX_ROUNDS_PER_DAY
           // At least three payouts' worth, for the longest epochs
           const targetDays = Math.max(REALISED_APY_DAYS, 3 * days)
           let start = end - BigInt(Math.ceil(targetDays * Number(perDay)))
-          if (round === undefined) start -= start % REALISED_START_STEP
+          start -= start % REALISED_START_STEP
           if (support.creationRound !== undefined && start < support.creationRound) {
             start = support.creationRound
           }
@@ -409,7 +398,9 @@ export const realisedApyQueryOptions = (
               signal,
             )
             const apy = realisedApy(before, after, windowDays)
-            return apy === undefined ? pool : { ...pool, apy }
+            if (apy === undefined) return pool
+            anyMeasured = true
+            return { ...pool, apy }
           } catch (error) {
             if (signal?.aborted) throw error
             // Say, a node that can't read past rounds: the corrected average stands
@@ -417,7 +408,7 @@ export const realisedApyQueryOptions = (
           }
         }),
       )
-      return weightedPoolApy(measured).apy
+      return anyMeasured ? weightedPoolApy(measured).apy : null
     },
     ...roundQueryDefaults(round, {
       staleTime: METRICS_STALE_TIME,
@@ -427,8 +418,10 @@ export const realisedApyQueryOptions = (
   })
 
 /**
- * A validator's APY by Nodely's realtime figures, which also count external deposits, in place
- * of the on-chain moving average its metrics carry. One Nodely request per counted pool, so
+ * A validator's APY by Nodely's realtime figures, which also count external deposits: shown when
+ * there's no realised APY (a node without time travel), in place of the on-chain moving average
+ * its metrics carry, and the source of the external deposits either way. Nodely can be wrong: it
+ * has reported ~5% for a pool offline for a month. One Nodely request per counted pool, so
  * callers hold it back until the rest of the page has loaded (`useExtrasReady`). Nodely only
  * answers "now": never use it at a pinned round.
  */
