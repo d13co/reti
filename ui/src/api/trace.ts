@@ -4,9 +4,10 @@
  *
  *   [reti] totals-series registry 3m · time>round, target=2026-07-21T10:04:12Z, pass=1, sim=1, estimate=57982211, rounds=16 (57978211…57986211), rt=53ms → bracket=57981677…57982211
  *
- * On in development. Elsewhere, run `localStorage.setItem('reti:trace', '1')` and reload.
+ * On in development. Elsewhere, run `localStorage.setItem('reti:trace', '1')` and reload. The same
+ * switch turns on `reti-ghost-sdk`'s `debug` logging (`[DEBUG]` lines for its own requests).
  */
-const enabled = (() => {
+export const traceEnabled = (() => {
   if (import.meta.env.DEV) return true
   try {
     return localStorage.getItem('reti:trace') === '1'
@@ -69,7 +70,7 @@ export function traceQuery(name: string, signal?: AbortSignal): Trace {
     signal,
     async step(purpose, params, request, describe, options) {
       signal?.throwIfAborted()
-      if (!enabled) return request()
+      if (!traceEnabled) return request()
       if (!params.cached && !options?.summary) requests += 1
       const since = performance.now()
       try {
@@ -90,10 +91,29 @@ export function traceQuery(name: string, signal?: AbortSignal): Trace {
       }
     },
     done(summary) {
-      if (!enabled) return
+      if (!traceEnabled) return
       log(
         `${prefix} done${summary ? `, ${summary}` : ''}, requests=${requests}, rt=${elapsed(started)}, page=+${(started / 1000).toFixed(2)}s→+${(performance.now() / 1000).toFixed(2)}s`,
       )
     },
   }
 }
+
+/**
+ * A query that makes one read: logged as one line, `[reti] <name> · <purpose>, <params>, rt=… → …`.
+ * With a `signal`, a cancelled query doesn't start the read.
+ */
+export function traceRead<T>(
+  name: string,
+  purpose: string,
+  params: Params,
+  request: () => Promise<T>,
+  describe?: (value: T) => string,
+  signal?: AbortSignal,
+): Promise<T> {
+  return traceQuery(name, signal).step(purpose, params, request, describe)
+}
+
+/** How many entries a list or record holds, for a trace line. */
+export const count = (value: unknown[] | Record<string, unknown> | null | undefined): string =>
+  value == null ? 'none' : String(Array.isArray(value) ? value.length : Object.keys(value).length)

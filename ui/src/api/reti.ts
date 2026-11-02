@@ -3,7 +3,7 @@ import { queryOptions } from '@tanstack/react-query'
 import { RetiGhostSDK, type RoundTime } from 'reti-ghost-sdk'
 import { algorandClient, RETI_APP_ID } from '@/api/clients'
 import { roundTimes, timestampOf, type TimeReader } from '@/api/roundTimes'
-import { isoTime, traceQuery } from '@/api/trace'
+import { isoTime, traceEnabled, traceQuery } from '@/api/trace'
 import {
   getAlgodConfigFromViteEnvironment,
   getReadAlgodConfigFromViteEnvironment,
@@ -19,8 +19,15 @@ export const readAlgorand = AlgorandClient.fromConfig({
   algodConfig: getReadAlgodConfigFromViteEnvironment(),
 })
 
-/** The only `RetiGhostSDK`. Read through {@link sdkAt} so a pinned round is never forgotten. */
-export const retiSdk = new RetiGhostSDK({ algorand: readAlgorand, registryAppId: RETI_APP_ID })
+/**
+ * The only `RetiGhostSDK`. Read through {@link sdkAt} so a pinned round is never forgotten. Its
+ * `debug` lines (each query, simulate and node read it makes) follow the traces' switch.
+ */
+export const retiSdk = new RetiGhostSDK({
+  algorand: readAlgorand,
+  registryAppId: RETI_APP_ID,
+  debug: traceEnabled,
+})
 
 // Fetch what the first read of every page waits on, so it doesn't happen inside that read: the
 // node's limits (queries, extended simulate or plain simulate), suggested params on a node without

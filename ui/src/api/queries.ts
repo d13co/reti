@@ -22,6 +22,7 @@ import {
 import { fetchNfd, fetchNfdReverseLookup, nfdQueriesSupported } from '@/api/nfd'
 import { fetchNodely24hPerf } from '@/api/nodely'
 import { latestReadRound, timeTravelSupportQueryOptions } from '@/api/reti'
+import { count, type Trace, traceQuery, traceRead } from '@/api/trace'
 import { Nfd, NfdGetLookupParams, NfdGetNFDParams } from '@/interfaces/nfd'
 import { LocalPoolInfo, PoolData, PoolGlobalStates } from '@/interfaces/validator'
 import { PERSISTED_GC_TIME } from '@/lib/queryPersister'
@@ -60,7 +61,14 @@ export const allValidatorsQueryOptions = (queryClient: QueryClient, round?: bigi
     queryKey: ['all-validators', roundKey(round)],
     queryFn: async (context) => {
       const signal = pinnedSignal(round, context)
-      const validators = await fetchAllValidatorData(round, signal)
+      const validators = await traceRead(
+        'all-validators',
+        'fetchAllValidatorData',
+        { round },
+        () => fetchAllValidatorData(round, signal),
+        (validators) => `validators=${validators.length}`,
+        signal,
+      )
       // A cancelled read seeds nothing
       signal?.throwIfAborted()
       seedValidatorCoreQueries(queryClient, validators, round)
@@ -77,14 +85,22 @@ export const allValidatorsQueryOptions = (queryClient: QueryClient, round?: bigi
 export const mbrQueryOptions = (round?: bigint) =>
   queryOptions({
     queryKey: ['mbr', roundKey(round)],
-    queryFn: (context) => fetchMbrAmounts(round, pinnedSignal(round, context)),
+    queryFn: (context) => {
+      const signal = pinnedSignal(round, context)
+      return traceRead('mbr', 'fetchMbrAmounts', { round }, () => fetchMbrAmounts(round, signal))
+    },
     ...roundQueryDefaults(round, { staleTime: Infinity }),
   })
 
 export const constraintsQueryOptions = (round?: bigint) =>
   queryOptions({
     queryKey: ['constraints', roundKey(round)],
-    queryFn: (context) => fetchProtocolConstraints(round, pinnedSignal(round, context)),
+    queryFn: (context) => {
+      const signal = pinnedSignal(round, context)
+      return traceRead('constraints', 'fetchProtocolConstraints', { round }, () =>
+        fetchProtocolConstraints(round, signal),
+      )
+    },
     ...roundQueryDefaults(round, {
       staleTime: 1000 * 60 * 60, // 1 hour
     }),
@@ -103,7 +119,10 @@ const VALIDATOR_GC_TIME = 1000 * 60 * 10 // 10 minutes
 export const validatorConfigQueryOptions = (validatorId: number, round?: bigint) =>
   queryOptions({
     queryKey: ['validator-config', String(validatorId), roundKey(round)],
-    queryFn: () => fetchValidatorConfig(validatorId, round),
+    queryFn: () =>
+      traceRead('validator-config', 'fetchValidatorConfig', { validatorId, round }, () =>
+        fetchValidatorConfig(validatorId, round),
+      ),
     ...roundQueryDefaults(round, {
       staleTime: Infinity,
       gcTime: VALIDATOR_GC_TIME,
@@ -121,7 +140,10 @@ export const validatorStateQueryOptions = (
 ) =>
   queryOptions({
     queryKey: ['validator-state', String(validatorId), roundKey(round)],
-    queryFn: () => fetchValidatorState(validatorId, round),
+    queryFn: () =>
+      traceRead('validator-state', 'fetchValidatorState', { validatorId, round }, () =>
+        fetchValidatorState(validatorId, round),
+      ),
     ...roundQueryDefaults(round, {
       gcTime: VALIDATOR_GC_TIME,
       refetchInterval,
@@ -138,7 +160,14 @@ export const validatorPoolsQueryOptions = (
 ) =>
   queryOptions({
     queryKey: ['validator-pools', String(validatorId), roundKey(round)],
-    queryFn: () => fetchValidatorPools(validatorId, round),
+    queryFn: () =>
+      traceRead(
+        'validator-pools',
+        'fetchValidatorPools',
+        { validatorId, round },
+        () => fetchValidatorPools(validatorId, round),
+        (pools) => `pools=${pools.length}`,
+      ),
     ...roundQueryDefaults(round, {
       gcTime: VALIDATOR_GC_TIME,
       refetchInterval,
@@ -154,7 +183,13 @@ export const validatorNodePoolAssignmentsQueryOptions = (
 ) =>
   queryOptions({
     queryKey: ['validator-node-pool-assignments', String(validatorId), roundKey(round)],
-    queryFn: () => fetchValidatorNodePoolAssignments(validatorId, round),
+    queryFn: () =>
+      traceRead(
+        'validator-node-pool-assignments',
+        'fetchValidatorNodePoolAssignments',
+        { validatorId, round },
+        () => fetchValidatorNodePoolAssignments(validatorId, round),
+      ),
     ...roundQueryDefaults(round, {
       staleTime: Infinity,
       gcTime: VALIDATOR_GC_TIME,
@@ -190,7 +225,14 @@ export const poolGlobalStatesQueryOptions = (queryClient: QueryClient, round?: b
       const poolAppIds = validators.flatMap((validator) =>
         validator.pools.map((pool) => pool.poolAppId),
       )
-      return fetchPoolGlobalStates(poolAppIds, round, signal)
+      return traceRead(
+        'pool-global-states',
+        'fetchPoolGlobalStates',
+        { pools: poolAppIds.length, round },
+        () => fetchPoolGlobalStates(poolAppIds, round, signal),
+        (states) => `pools=${count(states)}`,
+        signal,
+      )
     },
     ...roundQueryDefaults(round, {
       staleTime: METRICS_STALE_TIME,
@@ -222,12 +264,22 @@ export const validatorPoolStatesQueryOptions = (
       pools.map((pool) => String(pool.poolAppId)).join(','),
       roundKey(round),
     ],
-    queryFn: (context) =>
-      fetchPoolGlobalStates(
-        pools.map((pool) => pool.poolAppId),
-        round,
-        pinnedSignal(round, context),
-      ),
+    queryFn: (context) => {
+      const signal = pinnedSignal(round, context)
+      return traceRead(
+        `validator-pool-states ${validatorId}`,
+        'fetchPoolGlobalStates',
+        { pools: pools.length, round },
+        () =>
+          fetchPoolGlobalStates(
+            pools.map((pool) => pool.poolAppId),
+            round,
+            signal,
+          ),
+        (states) => `pools=${count(states)}`,
+        signal,
+      )
+    },
     initialData: () => {
       const bulk = queryClient.getQueryData(bulkKey)
       if (!bulk || pools.some((pool) => !(String(pool.poolAppId) in bulk))) return undefined
@@ -271,15 +323,18 @@ export const validatorMetricsQueryOptions = (
   queryOptions({
     queryKey: ['validator-metrics', String(validatorId), roundKey(round)],
     queryFn: async (context) => {
+      const signal = pinnedSignal(round, context)
+      const trace = traceQuery(`validator-metrics ${validatorId}`, signal)
       const poolsData = await metricsPoolData(
         queryClient,
         validatorId,
         pools,
         round,
         epochRoundLength,
-        pinnedSignal(round, context),
+        signal,
       )
-      const currentRound = round ?? (await latestReadRound())
+      const currentRound = round ?? (await tracedLatestReadRound(trace))
+      trace.done(`pools=${poolsData.length}`)
 
       return calculateValidatorPoolMetrics(
         poolsData,
@@ -316,9 +371,17 @@ async function metricsPoolData(
     queryClient.getQueryData(
       validatorPoolStatesQueryOptions(queryClient, validatorId, pools, round).queryKey,
     ) ??
-    (await fetchPoolGlobalStates(
-      pools.map((pool) => pool.poolAppId),
-      round,
+    (await traceRead(
+      `metrics-pool-states ${validatorId}`,
+      'fetchPoolGlobalStates (not cached)',
+      { pools: pools.length, round },
+      () =>
+        fetchPoolGlobalStates(
+          pools.map((pool) => pool.poolAppId),
+          round,
+          signal,
+        ),
+      (states) => `pools=${count(states)}`,
       signal,
     ))
 
@@ -328,6 +391,10 @@ async function metricsPoolData(
     )
     .filter((pool) => pool.balance >= AlgoAmount.Algos(30_000).microAlgos)
 }
+
+/** The read node's latest round, logged; one status read serves every caller for a few seconds. */
+const tracedLatestReadRound = (trace: Trace) =>
+  trace.step('latestReadRound', { shared: true }, latestReadRound, (round) => `latest=${round}`)
 
 /**
  * Windows start on a multiple of this: live, so the read at their start stays cached between
@@ -358,10 +425,14 @@ export const realisedApyQueryOptions = (
     queryKey: ['realised-apy', String(validatorId), roundKey(round)],
     queryFn: async (context): Promise<number | null> => {
       const signal = pinnedSignal(round, context)
+      const trace = traceQuery(`realised-apy ${validatorId}`, signal)
       // The window's start is a past round, which only a node with time travel can read. Asked
       // once per session, so a node without it costs nothing here.
       const support = await queryClient.ensureQueryData(timeTravelSupportQueryOptions)
-      if (!support.supported) return null
+      if (!support.supported) {
+        trace.done('no time travel')
+        return null
+      }
       const poolsData = await metricsPoolData(
         queryClient,
         validatorId,
@@ -370,7 +441,7 @@ export const realisedApyQueryOptions = (
         epochRoundLength,
         signal,
       )
-      const end = round ?? (await latestReadRound())
+      const end = round ?? (await tracedLatestReadRound(trace))
 
       let anyMeasured = false
       const measured = await Promise.all(
@@ -389,13 +460,22 @@ export const realisedApyQueryOptions = (
           // Fewer than two payouts in the window is too few to go on
           if (windowDays < 2 * days) return pool
           try {
-            // Cached reads others share (the Staking Details' own), so only the wait is cancelled
-            const [before, after] = await untilAborted(
-              Promise.all([
-                queryClient.ensureQueryData(stakedInfoQueryOptions(pool.poolAppId, start)),
-                queryClient.ensureQueryData(stakedInfoQueryOptions(pool.poolAppId, round)),
-              ]),
-              signal,
+            const poolAppId = pool.poolAppId
+            // Cached reads others share (the Staking Details' own), so only the wait is cancelled.
+            // Each one's own read is logged as staked-info.
+            const [before, after] = await trace.step(
+              'stakers',
+              { pool: poolAppId, start, end, days: windowDays.toFixed(1) },
+              () =>
+                untilAborted(
+                  Promise.all([
+                    queryClient.ensureQueryData(stakedInfoQueryOptions(poolAppId, start)),
+                    queryClient.ensureQueryData(stakedInfoQueryOptions(poolAppId, round)),
+                  ]),
+                  signal,
+                ),
+              ([before, after]) => `stakers=${before.length}→${after.length}`,
+              { summary: true },
             )
             const apy = realisedApy(before, after, windowDays)
             if (apy === undefined) return pool
@@ -408,7 +488,9 @@ export const realisedApyQueryOptions = (
           }
         }),
       )
-      return anyMeasured ? weightedPoolApy(measured).apy : null
+      const apy = anyMeasured ? weightedPoolApy(measured).apy : null
+      trace.done(`pools=${poolsData.length}, apy=${apy === null ? 'none' : apy.toFixed(2)}`)
+      return apy
     },
     ...roundQueryDefaults(round, {
       staleTime: METRICS_STALE_TIME,
@@ -434,14 +516,22 @@ export const nodelyApyQueryOptions = (
     // Ends in the live round key, so the persister keeps it like the other live entries
     queryKey: ['nodely-apy', String(validatorId), roundKey(undefined)],
     queryFn: async () => {
+      const trace = traceQuery(`nodely-apy ${validatorId}`)
       const poolsData = await metricsPoolData(queryClient, validatorId, pools)
       const withNodely = await Promise.all(
         poolsData.map(async (pool) => ({
           ...pool,
-          ...(await fetchNodelyPoolApy(pool.poolAppId!)),
+          ...(await trace.step(
+            'fetchNodelyPoolApy',
+            { pool: pool.poolAppId },
+            () => fetchNodelyPoolApy(pool.poolAppId!),
+            ({ apy, extDeposits }) => `apy=${apy}, extDeposits=${extDeposits}`,
+          )),
         })),
       )
-      return weightedPoolApy(withNodely)
+      const weighted = weightedPoolApy(withNodely)
+      trace.done(`pools=${poolsData.length}, apy=${weighted.apy.toFixed(2)}`)
+      return weighted
     },
     staleTime: METRICS_STALE_TIME,
     gcTime: PERSISTED_GC_TIME,
@@ -455,7 +545,17 @@ export const nodelyApyQueryOptions = (
 export const stakedInfoQueryOptions = (poolAppId: bigint, round?: bigint) =>
   queryOptions({
     queryKey: ['staked-info', poolAppId.toString(), roundKey(round)],
-    queryFn: (context) => fetchStakedInfoForPool(poolAppId, round, pinnedSignal(round, context)),
+    queryFn: (context) => {
+      const signal = pinnedSignal(round, context)
+      return traceRead(
+        'staked-info',
+        'fetchStakedInfoForPool',
+        { pool: poolAppId, round },
+        () => fetchStakedInfoForPool(poolAppId, round, signal),
+        (stakers) => `stakers=${stakers.length}`,
+        signal,
+      )
+    },
     enabled: !!poolAppId,
     ...roundQueryDefaults(round, {}),
   })
@@ -463,7 +563,17 @@ export const stakedInfoQueryOptions = (poolAppId: bigint, round?: bigint) =>
 export const stakesQueryOptions = (staker: string | null, round?: bigint) =>
   queryOptions({
     queryKey: ['stakes', { staker }, roundKey(round)],
-    queryFn: (context) => fetchStakerValidatorData(staker!, round, pinnedSignal(round, context)),
+    queryFn: (context) => {
+      const signal = pinnedSignal(round, context)
+      return traceRead(
+        'stakes',
+        'fetchStakerValidatorData',
+        { staker, round },
+        () => fetchStakerValidatorData(staker!, round, signal),
+        (stakes) => `validators=${stakes.length}`,
+        signal,
+      )
+    },
     enabled: !!staker,
     retry: false,
     ...roundQueryDefaults(round, {
@@ -481,7 +591,7 @@ export const stakesQueryOptions = (staker: string | null, round?: bigint) =>
  */
 export const nfdSupportQueryOptions = queryOptions({
   queryKey: ['nfd-support'],
-  queryFn: () => nfdQueriesSupported(),
+  queryFn: () => traceRead('nfd-support', 'nfdQueriesSupported', {}, nfdQueriesSupported, String),
   staleTime: Infinity,
   gcTime: Infinity,
 })
@@ -516,11 +626,17 @@ export const nfdQueryOptions = (
 ) =>
   queryOptions<Nfd>({
     queryKey: ['nfd', nameOrId.toString(), params, roundKey(round)],
-    queryFn: (context) =>
-      fetchNfd(nameOrId.toString(), params, options, {
-        round,
-        signal: pinnedSignal(round, context),
-      }),
+    queryFn: (context) => {
+      const signal = pinnedSignal(round, context)
+      return traceRead(
+        'nfd',
+        'fetchNfd',
+        { nameOrId, view: params.view, cache: options.cache === false ? 'off' : undefined, round },
+        () => fetchNfd(nameOrId.toString(), params, options, { round, signal }),
+        (nfd) => nfd.name,
+        signal,
+      )
+    },
     enabled: !!nameOrId,
     placeholderData: keepPreviousData,
     retry: nfdRetry,
@@ -545,11 +661,17 @@ export const nfdLookupQueryOptions = (
 
   return queryOptions<Nfd | null>({
     queryKey: ['nfd-lookup', address, params, roundKey(round)],
-    queryFn: (context) =>
-      fetchNfdReverseLookup(String(address), params, options, {
-        round,
-        signal: pinnedSignal(round, context),
-      }),
+    queryFn: (context) => {
+      const signal = pinnedSignal(round, context)
+      return traceRead(
+        'nfd-lookup',
+        'fetchNfdReverseLookup',
+        { address, view: params.view, cache: options.cache === false ? 'off' : undefined, round },
+        () => fetchNfdReverseLookup(String(address), params, options, { round, signal }),
+        (nfd) => nfd?.name ?? 'none',
+        signal,
+      )
+    },
     enabled: !!address,
     retry: nfdRetry,
     ...roundQueryDefaults(round, {
@@ -573,7 +695,17 @@ export const nfdLookupQueryOptions = (
 export const assetQueryOptions = (assetId: number, round?: bigint, queryClient?: QueryClient) =>
   queryOptions<algosdk.modelsv2.Asset>({
     queryKey: ['asset', assetId, roundKey(round)],
-    queryFn: (context) => fetchAssetAt(assetId, round, pinnedSignal(round, context)),
+    queryFn: (context) => {
+      const signal = pinnedSignal(round, context)
+      return traceRead(
+        'asset',
+        'fetchAssetAt',
+        { assetId, round },
+        () => fetchAssetAt(assetId, round, signal),
+        (asset) => asset.params?.unitName ?? '',
+        signal,
+      )
+    },
     enabled: assetId > 0,
     placeholderData: queryClient
       ? () =>
@@ -596,7 +728,8 @@ export const assetQueryOptions = (assetId: number, round?: bigint, queryClient?:
 export const balanceQueryOptions = (address: string | null) =>
   queryOptions({
     queryKey: ['account-balance', address],
-    queryFn: () => fetchBalance(address),
+    queryFn: () =>
+      traceRead('account-balance', 'fetchBalance', { address }, () => fetchBalance(address)),
     enabled: !!address,
     refetchInterval: 1000 * 30, // Every 30 seconds
   })
@@ -608,7 +741,17 @@ export const balanceQueryOptions = (address: string | null) =>
 export const historicalBalanceQueryOptions = (address: string, round: bigint) =>
   queryOptions({
     queryKey: ['historical-balance', address, roundKey(round)],
-    queryFn: (context) => fetchBalanceAt(address, round, pinnedSignal(round, context)),
+    queryFn: (context) => {
+      const signal = pinnedSignal(round, context)
+      return traceRead(
+        'historical-balance',
+        'fetchBalanceAt',
+        { address, round },
+        () => fetchBalanceAt(address, round, signal),
+        undefined,
+        signal,
+      )
+    },
     enabled: !!address,
     ...roundQueryDefaults(round, {}),
   })
@@ -620,7 +763,8 @@ export const historicalBalanceQueryOptions = (address: string, round: bigint) =>
 export const ipfsUrlQueryOptions = (ipfsUrl: string) =>
   queryOptions({
     queryKey: ['ipfs-url', ipfsUrl],
-    queryFn: () => resolveIpfsUrl(ipfsUrl),
+    queryFn: () =>
+      traceRead('ipfs-url', 'resolveIpfsUrl', { ipfsUrl }, () => resolveIpfsUrl(ipfsUrl)),
     enabled: ipfsUrl.startsWith('ipfs://'),
     staleTime: Infinity,
     gcTime: 1000 * 60 * 60 * 24, // 24 hours
@@ -635,7 +779,17 @@ export const ipfsUrlQueryOptions = (ipfsUrl: string) =>
 export const blockTimeQueryOptions = (round?: bigint) =>
   queryOptions({
     queryKey: ['block-times', roundKey(round)],
-    queryFn: (context) => fetchBlockTimes(round, undefined, pinnedSignal(round, context)),
+    queryFn: (context) => {
+      const signal = pinnedSignal(round, context)
+      return traceRead(
+        'block-times',
+        'fetchBlockTimes',
+        { round },
+        () => fetchBlockTimes(round, undefined, signal),
+        (times) => `times=${times.length}`,
+        signal,
+      )
+    },
     ...roundQueryDefaults(round, {
       staleTime: 1000 * 60 * 30, // 30 mins
     }),
@@ -647,7 +801,7 @@ export const blockTimeQueryOptions = (round?: bigint) =>
 export const nodelyPerfMetricsQueryOptions = () =>
   queryOptions({
     queryKey: ['nodely-perf'],
-    queryFn: () => fetchNodely24hPerf(),
+    queryFn: () => traceRead('nodely-perf', 'fetchNodely24hPerf', {}, fetchNodely24hPerf),
     placeholderData: keepPreviousData,
     staleTime: 1000 * 60 * 30, // 30 mins
     retry: (failureCount, error) => {

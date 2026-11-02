@@ -1,5 +1,6 @@
 import { queryOptions, QueryClient } from '@tanstack/react-query'
 import { latestReadRound, retiSdk } from '@/api/reti'
+import { traceRead } from '@/api/trace'
 import { PERSISTED_GC_TIME } from '@/lib/queryPersister'
 import { AlgodVerChange, CHANGE_SPAN_ROUNDS } from '@/utils/upgrades'
 
@@ -51,7 +52,14 @@ export const poolAlgodChangesQueryOptions = (
       const from = previous ? previous.to + 1n : spanStart
       // Nothing new yet; a span not reached yet is scanned up to just before its start
       if (from > to) return previous ?? { to: spanStart - 1n, changes: [] }
-      const found = await fetchAlgodVerChanges(poolAppId, from, to, signal)
+      const found = await traceRead(
+        'pool-algod-changes',
+        'fetchAlgodVerChanges',
+        { pool: poolAppId, from, to },
+        () => fetchAlgodVerChanges(poolAppId, from, to, signal),
+        (changes) => `changes=${changes.length}`,
+        signal,
+      )
       return { to, changes: [...(previous?.changes ?? []), ...found] }
     },
     staleTime: (query) => {
@@ -72,7 +80,14 @@ export const poolAlgodVersionsAtQueryOptions = (poolAppIds: bigint[], round: big
   queryOptions({
     queryKey: ['pool-algod-versions-at', String(round), poolAppIds.join(',')],
     queryFn: async ({ signal }): Promise<Record<string, string>> => {
-      const versions = await retiSdk.getPoolAlgodVersions(poolAppIds, { round, signal })
+      const versions = await traceRead(
+        'pool-algod-versions',
+        'getPoolAlgodVersions',
+        { pools: poolAppIds.length, round },
+        () => retiSdk.getPoolAlgodVersions(poolAppIds, { round, signal }),
+        (versions) => `versions=${versions.length}`,
+        signal,
+      )
       return Object.fromEntries(poolAppIds.map((id, i) => [String(id), versions[i] ?? '']))
     },
     staleTime: Infinity,

@@ -9,6 +9,7 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { fetchAccountInformation } from '@/api/algod'
+import { traceRead } from '@/api/trace'
 import {
   addStakingPool,
   fetchValidator,
@@ -101,7 +102,10 @@ export function AddPoolModal({
 
   const accountInfoQuery = useQuery({
     queryKey: ['account-info', activeAddress],
-    queryFn: () => fetchAccountInformation(activeAddress!),
+    queryFn: () =>
+      traceRead('account-info', 'fetchAccountInformation', { address: activeAddress }, () =>
+        fetchAccountInformation(activeAddress!),
+      ),
     enabled: !!activeAddress && !!validator, // wait until modal is open
   })
 

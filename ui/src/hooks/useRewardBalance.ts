@@ -1,4 +1,5 @@
 import { queryOptions, useQuery } from '@tanstack/react-query'
+import { traceRead } from '@/api/trace'
 import { useAtRound } from '@/hooks/useAtRound'
 import { useBlockTime } from '@/hooks/useBlockTime'
 import { Validator } from '@/interfaces/validator'
@@ -33,7 +34,13 @@ export function useRewardBalance(validator: Validator, refreshing = false) {
           String(rewardTokenId),
           roundKey(round),
         ],
-        queryFn: () => fetchRewardTokenHolding(poolAppId, rewardTokenId, round),
+        queryFn: () =>
+          traceRead(
+            'reward-token-holding',
+            'fetchRewardTokenHolding',
+            { pool: poolAppId, assetId: rewardTokenId, round },
+            () => fetchRewardTokenHolding(poolAppId, rewardTokenId, round),
+          ),
         retry: (retryCount, error) => {
           if (error?.message.includes('Pool 1 not found')) {
             return false

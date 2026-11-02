@@ -17,6 +17,7 @@ import {
   findPoolForStaker,
 } from '@/api/contracts'
 import { mbrQueryOptions } from '@/api/queries'
+import { traceRead } from '@/api/trace'
 import { AlgoDisplayAmount } from '@/components/AlgoDisplayAmount'
 import { Loading } from '@/components/Loading'
 import { NfdDisplay } from '@/components/NfdDisplay'
@@ -84,7 +85,10 @@ export function AddStakeModal({
 
   const accountInfoQuery = useQuery({
     queryKey: ['account-info', activeAddress],
-    queryFn: () => fetchAccountInformation(activeAddress!),
+    queryFn: () =>
+      traceRead('account-info', 'fetchAccountInformation', { address: activeAddress }, () =>
+        fetchAccountInformation(activeAddress!),
+      ),
     enabled: !!activeAddress && !!validator, // wait until modal is open
   })
 
@@ -94,7 +98,14 @@ export function AddStakeModal({
 
   const heldGatingAssetQuery = useQuery({
     queryKey: ['held-gating-asset', validator?.id, activeAddress],
-    queryFn: () => fetchValueToVerify(validator, activeAddress, heldAssets),
+    queryFn: () =>
+      traceRead(
+        'held-gating-asset',
+        'fetchValueToVerify',
+        { validatorId: validator?.id, address: activeAddress },
+        () => fetchValueToVerify(validator, activeAddress, heldAssets),
+        String,
+      ),
     enabled: !!validator && !!accountInfoQuery.data,
   })
   const valueToVerify = heldGatingAssetQuery.data || 0n
@@ -117,7 +128,14 @@ export function AddStakeModal({
   // @todo: make this a custom hook, call from higher up and pass down as prop
   const mbrRequiredQuery = useQuery({
     queryKey: ['mbr-required', activeAddress],
-    queryFn: () => doesStakerNeedToPayMbr(activeAddress!),
+    queryFn: () =>
+      traceRead(
+        'mbr-required',
+        'doesStakerNeedToPayMbr',
+        { address: activeAddress },
+        () => doesStakerNeedToPayMbr(activeAddress!),
+        String,
+      ),
     enabled: !!activeAddress,
   })
   const mbrRequired = mbrRequiredQuery.data || false
