@@ -923,7 +923,11 @@ export async function claimTokens(
   await untilReadNodeCaughtUp()
 }
 
-/** A pool's stakers as of `round`, from its `stakers` box (one REST read), empty slots left out. */
+/**
+ * A pool's stakers as of `round`, from its `stakers` box, empty slots left out. On a node with
+ * queries the SDK batches the pools read at the same round into one query; elsewhere it's one REST
+ * read per pool.
+ */
 export async function fetchStakedInfoForPool(
   poolAppId: bigint,
   round?: bigint,
