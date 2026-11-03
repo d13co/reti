@@ -462,20 +462,13 @@ export const realisedApyQueryOptions = (
           try {
             const poolAppId = pool.poolAppId
             // Cached reads others share (the Staking Details' own), so only the wait is cancelled.
-            // Each one's own read is logged as staked-info.
-            const [before, after] = await trace.step(
-              'stakers',
-              { pool: poolAppId, start, end, days: windowDays.toFixed(1) },
-              () =>
-                untilAborted(
-                  Promise.all([
-                    queryClient.ensureQueryData(stakedInfoQueryOptions(poolAppId, start)),
-                    queryClient.ensureQueryData(stakedInfoQueryOptions(poolAppId, round)),
-                  ]),
-                  signal,
-                ),
-              ([before, after]) => `stakers=${before.length}→${after.length}`,
-              { summary: true },
+            // The SDK logs the batched reads behind them.
+            const [before, after] = await untilAborted(
+              Promise.all([
+                queryClient.ensureQueryData(stakedInfoQueryOptions(poolAppId, start)),
+                queryClient.ensureQueryData(stakedInfoQueryOptions(poolAppId, round)),
+              ]),
+              signal,
             )
             const apy = realisedApy(before, after, windowDays)
             if (apy === undefined) return pool
@@ -546,15 +539,10 @@ export const stakedInfoQueryOptions = (poolAppId: bigint, round?: bigint) =>
   queryOptions({
     queryKey: ['staked-info', poolAppId.toString(), roundKey(round)],
     queryFn: (context) => {
+      // Not traced: the SDK batches every pool's stakers at a round and logs the batch.
       const signal = pinnedSignal(round, context)
-      return traceRead(
-        'staked-info',
-        'fetchStakedInfoForPool',
-        { pool: poolAppId, round },
-        () => fetchStakedInfoForPool(poolAppId, round, signal),
-        (stakers) => `stakers=${stakers.length}`,
-        signal,
-      )
+      signal?.throwIfAborted()
+      return fetchStakedInfoForPool(poolAppId, round, signal)
     },
     enabled: !!poolAppId,
     ...roundQueryDefaults(round, {}),
@@ -627,15 +615,10 @@ export const nfdQueryOptions = (
   queryOptions<Nfd>({
     queryKey: ['nfd', nameOrId.toString(), params, roundKey(round)],
     queryFn: (context) => {
+      // Not traced: the SDK batches NFD reads and logs the batch.
       const signal = pinnedSignal(round, context)
-      return traceRead(
-        'nfd',
-        'fetchNfd',
-        { nameOrId, view: params.view, cache: options.cache === false ? 'off' : undefined, round },
-        () => fetchNfd(nameOrId.toString(), params, options, { round, signal }),
-        (nfd) => nfd.name,
-        signal,
-      )
+      signal?.throwIfAborted()
+      return fetchNfd(nameOrId.toString(), params, options, { round, signal })
     },
     enabled: !!nameOrId,
     placeholderData: keepPreviousData,
@@ -662,15 +645,10 @@ export const nfdLookupQueryOptions = (
   return queryOptions<Nfd | null>({
     queryKey: ['nfd-lookup', address, params, roundKey(round)],
     queryFn: (context) => {
+      // Not traced: the SDK batches these reverse lookups and logs the batch.
       const signal = pinnedSignal(round, context)
-      return traceRead(
-        'nfd-lookup',
-        'fetchNfdReverseLookup',
-        { address, view: params.view, cache: options.cache === false ? 'off' : undefined, round },
-        () => fetchNfdReverseLookup(String(address), params, options, { round, signal }),
-        (nfd) => nfd?.name ?? 'none',
-        signal,
-      )
+      signal?.throwIfAborted()
+      return fetchNfdReverseLookup(String(address), params, options, { round, signal })
     },
     enabled: !!address,
     retry: nfdRetry,
