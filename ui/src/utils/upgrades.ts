@@ -29,42 +29,6 @@ export function windowStartTime(window: UpgradeWindow, anchorTime: number, earli
   return Math.max(earliest, anchorTime - WINDOW_DAYS[window] * DAY)
 }
 
-/**
- * Shorter than any block time the chain has had, so a round estimated with it lands before the
- * time asked for: the scan then starts early, never late.
- */
-const MIN_BLOCK_SECONDS = 2.5
-
-/** A round at or before `time`, estimated back from a known round, with no request. */
-export function roundAtOrBefore(
-  anchorRound: bigint,
-  anchorTime: number,
-  time: number,
-  earliestRound = 1n,
-): bigint {
-  const back = BigInt(Math.ceil(Math.max(0, anchorTime - time) / MIN_BLOCK_SECONDS))
-  const round = anchorRound - back
-  return round < earliestRound ? earliestRound : round
-}
-
-/**
- * Pools' version changes are scanned in fixed spans of this many rounds (about two months), so a
- * span that ended is read once and cached for good, whatever window asked for it.
- */
-export const CHANGE_SPAN_ROUNDS = 2n ** 21n
-
-/** The start of the span holding `round`. */
-export function spanStart(round: bigint): bigint {
-  return (round / CHANGE_SPAN_ROUNDS) * CHANGE_SPAN_ROUNDS
-}
-
-/** The starts of the spans covering `from` to `to`, both included. */
-export function spanStarts(from: bigint, to: bigint): bigint[] {
-  const starts: bigint[] = []
-  for (let start = spanStart(from); start <= to; start += CHANGE_SPAN_ROUNDS) starts.push(start)
-  return starts
-}
-
 /** A pool's `algodVer` as of the end of `round`, the round its node daemon wrote it. */
 export interface AlgodVerChange {
   round: bigint
@@ -302,6 +266,55 @@ function oldestOf(versions: Iterable<string>): AlgodVersion | undefined {
 }
 
 /**
+ * About as many segments as a lane can show apart. A lane is a few hundred pixels wide, and two
+ * nodes reporting for one pool can flip its version every minute for weeks: tens of thousands of
+ * segments that can't be seen, only rendered.
+ */
+export const MAX_LANE_SEGMENTS = 300
+
+/** The older of two versions. */
+function olderOf(a: AlgodVersion, b: AlgodVersion): AlgodVersion {
+  return compareAlgodVersions(b, a) < 0 ? b : a
+}
+
+/**
+ * Merges each run of segments shorter than `minLength` (seconds) into one, on the oldest version
+ * among them, as the lane shows the oldest version among its pools. A run doesn't cross from none
+ * reported to reported, so a lane never shows a version before its pools reported one. Longer
+ * segments and the last one, the version the lane ends on, stay as they are. Neighbours left on
+ * the same version are joined.
+ */
+export function boundSegments(segments: LaneSegment[], minLength: number): LaneSegment[] {
+  const merged: LaneSegment[] = []
+  let run: LaneSegment | undefined
+  segments.forEach((segment, i) => {
+    const short = segment.end - segment.start < minLength && i < segments.length - 1
+    if (short && run && Boolean(run.version) === Boolean(segment.version)) {
+      const version = run.version && segment.version && olderOf(run.version, segment.version)
+      run = { start: run.start, end: segment.end, version }
+      return
+    }
+    if (run) merged.push(run)
+    run = undefined
+    if (short) {
+      run = { ...segment }
+      return
+    }
+    merged.push(segment)
+  })
+  const joined: LaneSegment[] = []
+  for (const segment of merged) {
+    const previous = joined[joined.length - 1]
+    if (previous && previous.version?.full === segment.version?.full) {
+      joined[joined.length - 1] = { ...previous, end: segment.end }
+    } else {
+      joined.push(segment)
+    }
+  }
+  return joined
+}
+
+/**
  * Each validator's lane from `fromTime` to `toTime` (up to `toRound`): the oldest version among
  * its pools as it changed, and the upgrades that changed it. Validators whose pools never
  * reported a version are left out.
@@ -347,8 +360,11 @@ export function validatorLanes(
     if (!current && segments.every((s) => !s.version)) continue
     lanes.push({
       validatorId,
-      // The last segment stays even if it only just began: it is the version the lane ends on
-      segments: segments.filter((s, i) => s.end > s.start || i === segments.length - 1),
+      segments: boundSegments(
+        // The last segment stays even if it only just began: it is the version the lane ends on
+        segments.filter((s, i) => s.end > s.start || i === segments.length - 1),
+        (toTime - fromTime) / MAX_LANE_SEGMENTS,
+      ),
       upgrades: upgradesByValidator.get(validatorId) ?? [],
       current,
       pools: validatorPools

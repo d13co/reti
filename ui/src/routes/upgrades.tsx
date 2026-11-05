@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/table'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { useNodeUpgrades } from '@/hooks/useNodeUpgrades'
+import { useStableBy } from '@/hooks/useStableBy'
 import { useValidatorNames } from '@/hooks/useValidatorNames'
 import { AlgodVersion, nodemgrVersion } from '@/utils/algodVersion'
 import { dayjs } from '@/utils/dayjs'
@@ -95,7 +96,10 @@ function UpgradesBody() {
   const result = useNodeUpgrades({ window, eligibleOnly })
   const { upgrades, lanes, progress, loading, fromTime, toTime } = result
 
-  const validatorIds = React.useMemo(() => lanes.map((lane) => lane.validatorId), [lanes])
+  // Each of these is kept while its content is the same, as `lanes` is rebuilt as pools land and
+  // a new one would render every lane again
+  const laneIds = lanes.map((lane) => lane.validatorId)
+  const validatorIds = useStableBy(laneIds, laneIds.join(','))
   const names = useValidatorNames(validatorIds, result.validators, round)
   // An NFD name, else the owner's address as the dashboard shows it
   const owners = React.useMemo(
@@ -112,11 +116,14 @@ function UpgradesBody() {
   )
 
   // Colours come from every lane, so filtering never repaints the ones left
-  const colors = React.useMemo(() => releaseColors(laneReleases(lanes)), [lanes])
+  const allColors = React.useMemo(() => releaseColors(laneReleases(lanes)), [lanes])
+  // Its releases, in order, are all a colour depends on
+  const colors = useStableBy(allColors, [...allColors.keys()].join(','))
   // The newest release on screen: the last, as the colours are oldest first
   const latest = [...colors.keys()].pop()
   // When the first validator in view reached each release
-  const firstTimes = React.useMemo(() => firstReached(lanes), [lanes])
+  const reached = React.useMemo(() => firstReached(lanes), [lanes])
+  const firstTimes = useStableBy(reached, [...reached].join(';'))
   // The release picked in the legend, whose segments keep their colour while the rest go muted,
   // and which the "behind" and adoption orders measure against
   const [picked, setPicked] = React.useState<string>()

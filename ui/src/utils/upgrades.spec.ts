@@ -2,17 +2,17 @@ import { describe, expect, it } from 'vitest'
 import { parseAlgodVersion } from '@/utils/algodVersion'
 import {
   adoptedAt,
-  CHANGE_SPAN_ROUNDS,
+  boundSegments,
   firstReached,
   isBehind,
   laneReleases,
+  LaneSegment,
+  MAX_LANE_SEGMENTS,
   nodeUpgrades,
   PoolVersionHistory,
   reachedAt,
   releaseColors,
-  roundAtOrBefore,
   sortLanes,
-  spanStarts,
   upgradeKind,
   validatorLanes,
   versionAt,
@@ -43,23 +43,11 @@ function pool(
   }
 }
 
-describe('windows and spans', () => {
+describe('windows', () => {
   it('starts a window its length back, never before the earliest time', () => {
     expect(windowStartTime('1mo', 100 * DAY)).toBe(70 * DAY)
     expect(windowStartTime('1y', 100 * DAY, 10 * DAY)).toBe(10 * DAY)
     expect(windowStartTime('all', 100 * DAY, 10 * DAY)).toBe(10 * DAY)
-  })
-
-  it('estimates a round at or before a time', () => {
-    // 2.5 s per round at most: 1,000 s back is at least 400 rounds back
-    expect(roundAtOrBefore(10_000n, 5_000, 4_000)).toBe(9_600n)
-    expect(roundAtOrBefore(10_000n, 5_000, 0, 9_000n)).toBe(9_000n)
-  })
-
-  it('covers a range with whole spans', () => {
-    const span = CHANGE_SPAN_ROUNDS
-    expect(spanStarts(span + 5n, 3n * span - 1n)).toEqual([span, 2n * span])
-    expect(spanStarts(5n, 5n)).toEqual([0n])
   })
 })
 
@@ -244,6 +232,82 @@ describe('validatorLanes', () => {
 
   it('leaves out validators whose pools never reported', () => {
     expect(validatorLanes([pool(1n, 7, 1, '', [])], [], 0, DAY, 10n)).toEqual([])
+  })
+
+  it('bounds a flapping lane to what it can show', () => {
+    // Two nodes reporting for one pool: its daemon flips every minute for 10 days, ending on the
+    // one it started on
+    const flips: [number, number, string][] = Array.from({ length: 10 * 24 * 60 + 1 }, (_, i) => [
+      100 + i,
+      5 * DAY + i * 60,
+      V('5.0.4', i % 2 === 0 ? 'v1.0.0' : 'v1.0.3'),
+    ])
+    const pools = [pool(1n, 7, 1, V('5.0.3'), [...flips, [100_000, 20 * DAY, V('5.0.5')]])]
+    const [lane] = validatorLanes(pools, [], 0, 30 * DAY, 200_000n)
+    expect(lane.segments.length).toBeLessThanOrEqual(2 * MAX_LANE_SEGMENTS + 2)
+    // The flips become one segment, between the versions either side
+    expect(lane.segments.map((s) => [s.start / DAY, s.end / DAY, s.version?.full])).toEqual([
+      [0, 5, V('5.0.3')],
+      [5, 20, V('5.0.4', 'v1.0.0')],
+      [20, 30, V('5.0.5')],
+    ])
+  })
+})
+
+describe('boundSegments', () => {
+  const seg = (start: number, end: number, release?: string): LaneSegment => ({
+    start,
+    end,
+    version: release ? parseAlgodVersion(V(release)) : undefined,
+  })
+  const shape = (segments: LaneSegment[]) =>
+    segments.map((s) => [s.start, s.end, s.version?.release])
+
+  it('merges a run of short segments into its oldest version', () => {
+    const segments = [
+      seg(0, 50, '5.0.2'),
+      seg(50, 51, '5.0.4'),
+      seg(51, 52, '5.0.3'),
+      seg(52, 100, '5.0.5'),
+    ]
+    expect(shape(boundSegments(segments, 10))).toEqual([
+      [0, 50, '5.0.2'],
+      [50, 52, '5.0.3'],
+      [52, 100, '5.0.5'],
+    ])
+  })
+
+  it('keeps the last segment however short, and joins neighbours left on one version', () => {
+    const segments = [
+      seg(0, 50, '5.0.2'),
+      seg(50, 51, '5.0.4'),
+      seg(51, 52, '5.0.2'),
+      seg(52, 53, '5.0.5'),
+    ]
+    expect(shape(boundSegments(segments, 10))).toEqual([
+      [0, 52, '5.0.2'],
+      [52, 53, '5.0.5'],
+    ])
+  })
+
+  it('never merges none reported into a reported version', () => {
+    const segments = [
+      seg(0, 1),
+      seg(1, 2),
+      seg(2, 3, '5.0.4'),
+      seg(3, 4, '5.0.3'),
+      seg(4, 50, '5.0.5'),
+    ]
+    expect(shape(boundSegments(segments, 10))).toEqual([
+      [0, 2, undefined],
+      [2, 4, '5.0.3'],
+      [4, 50, '5.0.5'],
+    ])
+  })
+
+  it('leaves segments long enough alone', () => {
+    const segments = [seg(0, 50, '5.0.2'), seg(50, 100, '5.0.4')]
+    expect(boundSegments(segments, 10)).toEqual(segments)
   })
 })
 

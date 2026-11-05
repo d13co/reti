@@ -7,36 +7,32 @@ import {
   timeTravelSupportQueryOptions,
 } from '@/api/reti'
 import {
+  algodHistoriesRestoreQueryOptions,
   PoolAlgodChanges,
   poolAlgodChangesQueryOptions,
-  poolAlgodVersionsAtQueryOptions,
 } from '@/api/upgrades'
 import { useAtRound } from '@/hooks/useAtRound'
+import { useStableBy } from '@/hooks/useStableBy'
 import { nodeNumForPoolId } from '@/utils/pools'
 import { MIN_ELIGIBLE_STAKE } from '@/utils/table'
 import {
   nodeUpgrades,
   NodeUpgrade,
   PoolVersionHistory,
-  roundAtOrBefore,
-  spanStarts,
   UpgradeWindow,
   validatorLanes,
   ValidatorLane,
   windowStartTime,
 } from '@/utils/upgrades'
 
-/** Pools scanned at once. Each scan is a few requests in a row. */
+/** Pools listed at once. Each listing is one request, or a few for a pool with a long history. */
 const SCAN_CONCURRENCY = 6
 
-/** How often the page takes in the scans that finished since. */
+/** How often the page takes in the listings that finished since. */
 const PROGRESS_INTERVAL = 250
 
 /** How long the latest round anchors a live window before it is read again. */
 const ANCHOR_STALE_TIME = 1000 * 60 // 1 minute
-
-/** The pools' versions before a window that starts at the registry's creation: none */
-const EMPTY_BASE: Readonly<Record<string, string>> = {}
 
 export interface NodeUpgradesOptions {
   window: UpgradeWindow
@@ -47,14 +43,14 @@ export interface NodeUpgradesOptions {
 export interface NodeUpgradesResult {
   /** Whether the read node has the history this needs; undefined while it's being asked */
   supported?: boolean
-  /** Still finding the pools or scanning them */
+  /** Still finding the pools or listing them */
   loading: boolean
   /** The window on screen, in seconds */
   fromTime?: number
   toTime?: number
   upgrades: NodeUpgrade[]
   lanes: ValidatorLane[]
-  /** Pool spans scanned (or failed), of those the window needs */
+  /** Pools listed (or failed), of those that have reported a version */
   progress: { done: number; total: number }
   error?: unknown
   /** Reads again what failed */
@@ -80,7 +76,7 @@ function useFetchAll<T>(
   attempt: number,
 ): { data: (T | undefined)[]; settled: number; version: number; error?: Error } {
   const queryClient = useQueryClient()
-  // Bumped as scans land, refreshes of data already there included
+  // Bumped as listings land, refreshes of data already there included
   const [version, setTick] = React.useState(0)
 
   React.useEffect(() => {
@@ -123,12 +119,18 @@ function useFetchAll<T>(
   return { data, settled, version, error }
 }
 
-/** Keeps the first `value` for as long as `key` stays the same. */
-function useStableBy<T>(value: T, key: string): T {
-  const ref = React.useRef({ key, value })
-  if (ref.current.key !== key) ref.current = { key, value }
-  return ref.current.value
+/** A pool that hasn't reported a version by the round on screen: it has no history to list. */
+const NOT_REPORTED = Symbol('not reported')
+
+/** One validator's upgrades and lane, and what they were built from. */
+interface ValidatorBuild {
+  inputs: unknown[]
+  upgrades: NodeUpgrade[]
+  lane?: ValidatorLane
 }
+
+const sameInputs = (a: unknown[], b: unknown[]) =>
+  a.length === b.length && a.every((value, i) => Object.is(value, b[i]))
 
 /**
  * The validator node upgrades over a window back from the time on screen: when each pool's node
@@ -151,6 +153,12 @@ export function useNodeUpgrades({ window, eligibleOnly }: NodeUpgradesOptions): 
     ...poolGlobalStatesQueryOptions(queryClient, round),
     enabled: supported === true,
   })
+  // The pools' histories kept from earlier visits, loaded before any is listed
+  const restoreQuery = useQuery({
+    ...algodHistoriesRestoreQueryOptions(queryClient),
+    enabled: supported === true,
+  })
+  const restored = restoreQuery.isSuccess
 
   // The round the window ends at, and its time: the round on screen, or the latest
   const latestQuery = useQuery({
@@ -169,8 +177,8 @@ export function useNodeUpgrades({ window, eligibleOnly }: NodeUpgradesOptions): 
   const validators = validatorsQuery.data
   const poolStates = poolStatesQuery.data
 
-  // Every pool, with its validator, node, stake and whether it's eligible. Rebuilt on each
-  // refetch, as stakes move
+  // Every pool, with its validator, node, stake, whether it's eligible and whether its node
+  // daemon has reported a version. Rebuilt on each refetch, as stakes move
   const allPools = React.useMemo(() => {
     if (!validators || !poolStates) return undefined
     return validators.flatMap((validator) =>
@@ -184,18 +192,23 @@ export function useNodeUpgrades({ window, eligibleOnly }: NodeUpgradesOptions): 
             node: nodeNumForPoolId(pool.poolAppId, validator.nodePoolAssignment),
             stake: pool.totalAlgoStaked,
             eligible: state.balance >= MIN_ELIGIBLE_STAKE,
+            // A daemon only ever writes a version, never clears one: a pool without one at the
+            // round on screen has no changes up to it
+            reported: Boolean(state.algodVer),
           },
         ]
       }),
     )
   }, [validators, poolStates])
 
-  // The pools to scan. Kept the same while the same pools are picked, so a refetch that only
-  // moves stakes doesn't start the scans over
+  // The pools on screen. Kept the same while the same pools are picked, so a refetch that only
+  // moves stakes doesn't start the listings over
   const picked = allPools?.filter((pool) => !eligibleOnly || pool.eligible)
   const pools = useStableBy(
     picked,
-    picked?.map((pool) => `${pool.poolAppId}:${pool.validatorId}:${pool.node}`).join(',') ?? '',
+    picked
+      ?.map((pool) => `${pool.poolAppId}:${pool.validatorId}:${pool.node}:${pool.reported}`)
+      .join(',') ?? '',
   )
   const stakes = React.useMemo(
     () => new Map(allPools?.map((pool) => [pool.poolAppId, pool.stake])),
@@ -206,111 +219,106 @@ export function useNodeUpgrades({ window, eligibleOnly }: NodeUpgradesOptions): 
     anchor && support
       ? windowStartTime(window, anchor.timestamp, support.creationTimestamp)
       : undefined
-  const fromRound =
-    anchor && fromTime !== undefined
-      ? roundAtOrBefore(anchor.round, anchor.timestamp, fromTime, support?.creationRound)
-      : undefined
+  const toTime = anchor?.timestamp
   const anchorRound = anchor?.round
 
-  // Kept the same while the same spans cover the window, as the live anchor moves every minute
-  const spanList =
-    fromRound !== undefined && anchorRound !== undefined ? spanStarts(fromRound, anchorRound) : []
-  const spans = useStableBy(spanList, spanList.join(','))
-
-  // One scan per pool and span
+  // One listing per pool that has reported, once the kept histories are in. A history covers
+  // every window, so changing the window lists nothing
+  const listed = React.useMemo(
+    () => (restored ? (pools ?? []).filter((pool) => pool.reported) : []),
+    [pools, restored],
+  )
   const scans = React.useMemo(
     () =>
-      (pools ?? []).flatMap((pool) =>
-        spans.map(
-          (start) =>
-            poolAlgodChangesQueryOptions(queryClient, pool.poolAppId, start) as FetchQueryOptions<
-              PoolAlgodChanges,
-              Error,
-              PoolAlgodChanges,
-              readonly unknown[]
-            >,
-        ),
+      listed.map(
+        (pool) =>
+          poolAlgodChangesQueryOptions(queryClient, pool.poolAppId) as FetchQueryOptions<
+            PoolAlgodChanges,
+            Error,
+            PoolAlgodChanges,
+            readonly unknown[]
+          >,
       ),
-    [pools, spans, queryClient],
+    [listed, queryClient],
   )
   const [attempt, setAttempt] = React.useState(0)
   const scanned = useFetchAll(scans, SCAN_CONCURRENCY, attempt)
 
-  // Every pool's version just before the first span, which its first change moved it from. Read
-  // for all pools, picked or not, so changing which are picked doesn't read it again
-  const baseRound = spans.length > 0 ? spans[0] - 1n : undefined
-  const creationRound = support?.creationRound
-  // Round 1 is the earliest there is, if the registry's creation isn't known
-  const baseBeforeCreation = baseRound !== undefined && baseRound < (creationRound ?? 1n)
-  const allPoolIdsKey = allPools?.map((pool) => String(pool.poolAppId)).join(',') ?? ''
-  const allPoolIds = React.useMemo(
-    () => (allPoolIdsKey ? allPoolIdsKey.split(',').map(BigInt) : []),
-    [allPoolIdsKey],
-  )
-  const baseQuery = useQuery({
-    ...poolAlgodVersionsAtQueryOptions(allPoolIds, baseRound ?? 0n),
-    enabled: baseRound !== undefined && !baseBeforeCreation && allPoolIds.length > 0,
-  })
-  const base =
-    baseBeforeCreation || (allPools !== undefined && allPools.length === 0)
-      ? EMPTY_BASE
-      : baseQuery.data
-
-  // Only pools with every span scanned: a gap would compare a change against the wrong version
-  const histories = React.useMemo((): PoolVersionHistory[] | undefined => {
-    if (!pools || !base) return undefined
-    return pools.flatMap((pool, p) => {
-      const parts = spans.map((_, s) => scanned.data[p * spans.length + s])
-      if (parts.some((part) => part === undefined)) return []
-      return [
-        {
-          poolAppId: pool.poolAppId,
-          validatorId: pool.validatorId,
-          node: pool.node,
-          stake: stakes.get(pool.poolAppId),
-          base: base[String(pool.poolAppId)] ?? '',
-          changes: parts.flatMap((part) => part?.changes ?? []),
-        },
-      ]
-    })
+  // Each validator's upgrades and lane, rebuilt only when one of its pools got new data (or the
+  // window moved): the rest keep their objects, so their lanes don't render again
+  const builds = React.useRef(new Map<number, ValidatorBuild>())
+  const built = React.useMemo(() => {
+    if (!pools || fromTime === undefined || toTime === undefined || anchorRound === undefined) {
+      return undefined
+    }
+    const dataByPool = new Map(listed.map((pool, i) => [pool.poolAppId, scanned.data[i]]))
+    const byValidator = new Map<number, NonNullable<typeof pools>>()
+    for (const pool of pools) {
+      const list = byValidator.get(pool.validatorId)
+      if (list) list.push(pool)
+      else byValidator.set(pool.validatorId, [pool])
+    }
+    const next = new Map<number, ValidatorBuild>()
+    const upgrades: NodeUpgrade[] = []
+    const lanes: ValidatorLane[] = []
+    for (const [validatorId, validatorPools] of byValidator) {
+      const parts = validatorPools.map((pool) =>
+        pool.reported ? dataByPool.get(pool.poolAppId) : NOT_REPORTED,
+      )
+      const inputs: unknown[] = [fromTime, toTime, anchorRound]
+      validatorPools.forEach((pool, i) =>
+        inputs.push(pool.poolAppId, pool.node, stakes.get(pool.poolAppId), parts[i]),
+      )
+      let build = builds.current.get(validatorId)
+      if (!build || !sameInputs(build.inputs, inputs)) {
+        // Only pools listed so far: one still to come joins its validator when it lands
+        const histories = validatorPools.flatMap((pool, i): PoolVersionHistory[] => {
+          const part = parts[i]
+          if (part === undefined) return []
+          return [
+            {
+              poolAppId: pool.poolAppId,
+              validatorId,
+              node: pool.node,
+              stake: stakes.get(pool.poolAppId),
+              // Histories start at the pool's creation, before which it had no version
+              base: '',
+              changes: part === NOT_REPORTED ? [] : part.changes,
+            },
+          ]
+        })
+        const validatorUpgrades = nodeUpgrades(histories, fromTime, anchorRound)
+        const [lane] = validatorLanes(histories, validatorUpgrades, fromTime, toTime, anchorRound)
+        build = { inputs, upgrades: validatorUpgrades, lane }
+      }
+      next.set(validatorId, build)
+      for (const upgrade of build.upgrades) upgrades.push(upgrade)
+      if (build.lane) lanes.push(build.lane)
+    }
+    builds.current = next
+    upgrades.sort((a, b) => b.timestamp - a.timestamp || Number(b.round - a.round))
+    return { upgrades, lanes }
     // `scanned.data` is a new array each render; `scanned.version` says when it changed
-  }, [pools, base, spans, stakes, scanned.version, scans])
-
-  const toTime = anchor?.timestamp
-  const upgrades = React.useMemo(
-    () =>
-      histories && fromTime !== undefined && anchorRound !== undefined
-        ? nodeUpgrades(histories, fromTime, anchorRound)
-        : [],
-    [histories, fromTime, anchorRound],
-  )
-  const lanes = React.useMemo(
-    () =>
-      histories && fromTime !== undefined && toTime !== undefined && anchorRound !== undefined
-        ? validatorLanes(histories, upgrades, fromTime, toTime, anchorRound)
-        : [],
-    [histories, upgrades, fromTime, toTime, anchorRound],
-  )
+  }, [pools, listed, stakes, fromTime, toTime, anchorRound, scanned.version, scans])
 
   const error =
     scanned.error ??
-    baseQuery.error ??
+    restoreQuery.error ??
     roundTimeQuery.error ??
     latestQuery.error ??
     poolStatesQuery.error ??
     validatorsQuery.error
-  // A read the rest waits on failed: the page stops loading and offers a retry. A failed scan
+  // A read the rest waits on failed: the page stops loading and offers a retry. A failed listing
   // counts as settled, so it doesn't hold up the others
   const stuck =
     (anchor === undefined && (roundTimeQuery.isError || latestQuery.isError)) ||
-    (!pools && (validatorsQuery.isError || poolStatesQuery.isError)) ||
-    (!base && baseQuery.isError)
+    (!pools && (validatorsQuery.isError || poolStatesQuery.isError))
   const loading =
     supported !== false &&
     !stuck &&
-    (anchor === undefined || !pools || !base || scanned.settled < scans.length)
+    (anchor === undefined || !pools || !restored || scanned.settled < scans.length)
   const retry = React.useCallback(() => {
-    // The page's own failed reads, then the failed scans, which nothing observes
+    // The page's own failed reads, then the failed listings, which nothing observes
     void queryClient.refetchQueries({
       type: 'active',
       predicate: (query) => query.state.status === 'error',
@@ -322,8 +330,8 @@ export function useNodeUpgrades({ window, eligibleOnly }: NodeUpgradesOptions): 
     loading,
     fromTime,
     toTime,
-    upgrades,
-    lanes,
+    upgrades: built?.upgrades ?? [],
+    lanes: built?.lanes ?? [],
     progress: { done: scanned.settled, total: scans.length },
     error: error ?? undefined,
     retry,

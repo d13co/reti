@@ -15,13 +15,12 @@ import { isPinnedQueryKey } from '@/utils/round'
  * positions are volatile and wallet-scoped, and painting a stale one would be worse than a
  * spinner. What is here is either expensive (Nodely APY costs a request per pool), rate limited
  * and near-static (NFD), or the whole dashboard in one entry
- * (`all-validators`), which is what makes the first paint instant.
+ * (`all-validators`), which is what makes the first paint instant. Pools' version histories are
+ * kept apart, in `algodHistoryStore`.
  */
 const PERSISTED_QUERY_ROOTS = new Set([
   'all-validators',
   'pool-global-states',
-  'pool-algod-changes',
-  'pool-algod-versions-at',
   'validator-metrics',
   'nodely-apy',
   'realised-apy',
