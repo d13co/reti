@@ -226,15 +226,14 @@ function createMockSdk() {
       kind: 'dt' as const,
       limits: {
         maxTxnGroups: 16,
-        maxRounds: 256,
         maxExtraOpcodeBudget: 640_000,
-        resourceLimitMultiplier: 128,
         timeTravel: true,
         developerApi: true,
       },
       query: {
         maxCalls: 1024,
         maxRounds: 16,
+        maxTotalCalls: 1024,
         maxCallBudget: 320_000,
         maxCallLogBytes: 65_536,
         maxResponseBytes: 67_108_864,

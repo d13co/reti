@@ -5,8 +5,8 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  algosdk: npm:dt-algosdk@3.9.0-dt.4.1.0.0
-  '@algorandfoundation/algokit-utils': npm:@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0
+  algosdk: npm:dt-algosdk@3.9.0-dt.5.2.0.0
+  '@algorandfoundation/algokit-utils': npm:@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0
 
 importers:
 
@@ -15,15 +15,15 @@ importers:
   contracts:
     dependencies:
       '@algorandfoundation/algokit-utils':
-        specifier: npm:@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0
-        version: '@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0(dt-algosdk@3.9.0-dt.4.1.0.0)'
+        specifier: npm:@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0
+        version: '@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0)'
       algosdk:
-        specifier: npm:dt-algosdk@3.9.0-dt.4.1.0.0
-        version: dt-algosdk@3.9.0-dt.4.1.0.0
+        specifier: npm:dt-algosdk@3.9.0-dt.5.2.0.0
+        version: dt-algosdk@3.9.0-dt.5.2.0.0
     devDependencies:
       '@algorandfoundation/algokit-client-generator':
         specifier: 6.0.0
-        version: 6.0.0(@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0(dt-algosdk@3.9.0-dt.4.1.0.0))(dt-algosdk@3.9.0-dt.4.1.0.0)
+        version: 6.0.0(@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0))(dt-algosdk@3.9.0-dt.5.2.0.0)
       '@algorandfoundation/tealscript':
         specifier: 0.106.1
         version: 0.106.1
@@ -67,11 +67,11 @@ importers:
   contracts/bootstrap:
     dependencies:
       '@algorandfoundation/algokit-utils':
-        specifier: npm:@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0
-        version: '@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0(dt-algosdk@3.9.0-dt.4.1.0.0)'
+        specifier: npm:@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0
+        version: '@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0)'
       algosdk:
-        specifier: npm:dt-algosdk@3.9.0-dt.4.1.0.0
-        version: dt-algosdk@3.9.0-dt.4.1.0.0
+        specifier: npm:dt-algosdk@3.9.0-dt.5.2.0.0
+        version: dt-algosdk@3.9.0-dt.5.2.0.0
       prompts:
         specifier: ^2.4.2
         version: 2.4.2
@@ -98,20 +98,20 @@ importers:
   ui:
     dependencies:
       '@algorandfoundation/algokit-utils':
-        specifier: npm:@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0
-        version: '@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0(dt-algosdk@3.9.0-dt.4.1.0.0)'
+        specifier: npm:@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0
+        version: '@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0)'
       '@algorandfoundation/xgov-clients':
         specifier: ^3.0.1
-        version: 3.0.1(@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0(dt-algosdk@3.9.0-dt.4.1.0.0))(dt-algosdk@3.9.0-dt.4.1.0.0)
+        version: 3.0.1(@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0))(dt-algosdk@3.9.0-dt.5.2.0.0)
       '@blockshake/defly-connect':
         specifier: 1.2.1
-        version: 1.2.1(dt-algosdk@3.9.0-dt.4.1.0.0)
+        version: 1.2.1(dt-algosdk@3.9.0-dt.5.2.0.0)
       '@hookform/resolvers':
         specifier: 3.9.0
         version: 3.9.0(react-hook-form@7.53.0(react@18.3.1))
       '@perawallet/connect':
         specifier: 1.5.2
-        version: 1.5.2(dt-algosdk@3.9.0-dt.4.1.0.0)
+        version: 1.5.2(dt-algosdk@3.9.0-dt.5.2.0.0)
       '@radix-ui/react-alert-dialog':
         specifier: ^1.1.5
         version: 1.1.5(@types/react-dom@18.3.0)(@types/react@18.3.11)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -189,7 +189,7 @@ importers:
         version: 3.18.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.13(ts-node@10.9.2(@types/node@20.16.11)(typescript@5.6.3)))
       '@txnlab/use-wallet-react':
         specifier: 4.6.0
-        version: 4.6.0(@blockshake/defly-connect@1.2.1(dt-algosdk@3.9.0-dt.4.1.0.0))(@perawallet/connect@1.5.2(dt-algosdk@3.9.0-dt.4.1.0.0))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(dt-algosdk@3.9.0-dt.4.1.0.0)(lute-connect@1.5.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 4.6.0(@blockshake/defly-connect@1.2.1(dt-algosdk@3.9.0-dt.5.2.0.0))(@perawallet/connect@1.5.2(dt-algosdk@3.9.0-dt.5.2.0.0))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(dt-algosdk@3.9.0-dt.5.2.0.0)(lute-connect@1.5.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@walletconnect/modal':
         specifier: 2.7.0
         version: 2.7.0(@types/react@18.3.11)(react@18.3.1)
@@ -197,8 +197,8 @@ importers:
         specifier: 2.20.2
         version: 2.20.2(typescript@5.6.3)(zod@3.23.8)
       algosdk:
-        specifier: npm:dt-algosdk@3.9.0-dt.4.1.0.0
-        version: dt-algosdk@3.9.0-dt.4.1.0.0
+        specifier: npm:dt-algosdk@3.9.0-dt.5.2.0.0
+        version: dt-algosdk@3.9.0-dt.5.2.0.0
       axios:
         specifier: 1.19.0
         version: 1.19.0
@@ -239,8 +239,8 @@ importers:
         specifier: 0.3.0
         version: 0.3.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       nfd-ghost-sdk:
-        specifier: file:vendor/nfd-ghost-sdk-2.0.0-dt.5.tgz
-        version: file:ui/vendor/nfd-ghost-sdk-2.0.0-dt.5.tgz(@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0(dt-algosdk@3.9.0-dt.4.1.0.0))(dt-algosdk@3.9.0-dt.4.1.0.0)
+        specifier: file:vendor/nfd-ghost-sdk-2.0.0-dt.6.tgz
+        version: file:ui/vendor/nfd-ghost-sdk-2.0.0-dt.6.tgz(@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0))(dt-algosdk@3.9.0-dt.5.2.0.0)
       notistack:
         specifier: 3.0.1
         version: 3.0.1(csstype@3.1.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -263,8 +263,8 @@ importers:
         specifier: 7.53.0
         version: 7.53.0(react@18.3.1)
       reti-ghost-sdk:
-        specifier: file:vendor/reti-ghost-sdk-0.3.0-dt.13.tgz
-        version: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.13.tgz(@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0(dt-algosdk@3.9.0-dt.4.1.0.0))(dt-algosdk@3.9.0-dt.4.1.0.0)
+        specifier: file:vendor/reti-ghost-sdk-0.3.0-dt.16.tgz
+        version: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.16.tgz(@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0))(dt-algosdk@3.9.0-dt.5.2.0.0)
       sonner:
         specifier: 1.5.0
         version: 1.5.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -388,8 +388,8 @@ packages:
     engines: {node: '>=20.0'}
     hasBin: true
     peerDependencies:
-      '@algorandfoundation/algokit-utils': ^9.0.0
-      algosdk: ^3.2.0
+      '@algorandfoundation/algokit-utils': npm:@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0
+      algosdk: npm:dt-algosdk@3.9.0-dt.5.2.0.0
 
   '@algorandfoundation/tealscript@0.106.1':
     resolution: {integrity: sha512-aQpLHfz6+f5WoTWs9U6AbFysS8dw65iCjk2jxkqE+l137i4ZQF01GC8OndTyVX97RTSwjoBay/gJ2jk1JBdyeA==}
@@ -398,8 +398,8 @@ packages:
   '@algorandfoundation/xgov-clients@3.0.1':
     resolution: {integrity: sha512-s/L40sVpzeVtZqbsqR3NY3qLchg4UCR8mqdxFfXy4sL6iAkvoibpdz2NrIBAglHLyD4m8H4JI3Hj1oHf7FySAQ==}
     peerDependencies:
-      '@algorandfoundation/algokit-utils': ^9.1.2
-      algosdk: ^3.4.0
+      '@algorandfoundation/algokit-utils': npm:@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0
+      algosdk: npm:dt-algosdk@3.9.0-dt.5.2.0.0
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -518,7 +518,7 @@ packages:
   '@blockshake/defly-connect@1.2.1':
     resolution: {integrity: sha512-T9wAjPTFdc8iRiDzTqmeBRCIroWLgXmqZHwnpzuchjYZXXqbnj+zge+HS7UaNunpxGVjDUNK1ah7OR6hEqtJoQ==}
     peerDependencies:
-      algosdk: ^3.0.0
+      algosdk: npm:dt-algosdk@3.9.0-dt.5.2.0.0
 
   '@bundled-es-modules/cookie@2.0.0':
     resolution: {integrity: sha512-Or6YHg/kamKHpxULAdSqhGqnWFneIXu1NKvvfBBzKGwpVsYuFIQ5aBPHDnnoR3ghW1nvSkALd+EF9iMtY7Vjxw==}
@@ -539,11 +539,11 @@ packages:
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
 
-  '@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0':
-    resolution: {integrity: sha512-KYbqH9IGZeokL13cjv/65Dg8dai4eJGkDf2H+J6n+x76WssGDpya+19VG3BIYLIC+YqstXQZej88BpNJgZmjXg==}
+  '@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0':
+    resolution: {integrity: sha512-esmDxO9pYy8zkwXwNf0C2CHEwXSpfpPkAU/giwFj4MswRyghJLArRm7eJQd884hdCwoBiLIpC2h+RSuVVyQ23A==}
     engines: {node: '>=22.0'}
     peerDependencies:
-      algosdk: ^3.5.2 || ^3.9.0-dt.4.1.0.0
+      algosdk: npm:dt-algosdk@3.9.0-dt.5.2.0.0
 
   '@esbuild/aix-ppc64@0.21.5':
     resolution: {integrity: sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==}
@@ -1082,35 +1082,30 @@ packages:
     engines: {node: '>= 10.0.0'}
     cpu: [arm]
     os: [linux]
-    libc: [glibc]
 
   '@parcel/watcher-linux-arm64-glibc@2.4.1':
     resolution: {integrity: sha512-BJ7mH985OADVLpbrzCLgrJ3TOpiZggE9FMblfO65PlOCdG++xJpKUJ0Aol74ZUIYfb8WsRlUdgrZxKkz3zXWYA==}
     engines: {node: '>= 10.0.0'}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@parcel/watcher-linux-arm64-musl@2.4.1':
     resolution: {integrity: sha512-p4Xb7JGq3MLgAfYhslU2SjoV9G0kI0Xry0kuxeG/41UfpjHGOhv7UoUDAz/jb1u2elbhazy4rRBL8PegPJFBhA==}
     engines: {node: '>= 10.0.0'}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@parcel/watcher-linux-x64-glibc@2.4.1':
     resolution: {integrity: sha512-s9O3fByZ/2pyYDPoLM6zt92yu6P4E39a03zvO0qCHOTjxmt3GHRMLuRZEWhWLASTMSrrnVNWdVI/+pUElJBBBg==}
     engines: {node: '>= 10.0.0'}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@parcel/watcher-linux-x64-musl@2.4.1':
     resolution: {integrity: sha512-L2nZTYR1myLNST0O632g0Dx9LyMNHrn6TOt76sYxWLdff3cB22/GZX2UPtJnaqQPdCRoszoY5rcOj4oMTtp5fQ==}
     engines: {node: '>= 10.0.0'}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@parcel/watcher-wasm@2.4.1':
     resolution: {integrity: sha512-/ZR0RxqxU/xxDGzbzosMjh4W6NdYFMqq2nvo2b8SLi7rsl/4jkL8S5stIikorNkdR50oVDvqb/3JT05WM+CRRA==}
@@ -1143,7 +1138,7 @@ packages:
   '@perawallet/connect@1.5.2':
     resolution: {integrity: sha512-Lq4nLaQBisZUkBIWirhRn4b9MjrKWvlMxfrU6On5al/14E5mm3dlnwGHhpJ88IGlnGs7JyL625LVMgUK1TOTrg==}
     peerDependencies:
-      algosdk: ^3.5.2
+      algosdk: npm:dt-algosdk@3.9.0-dt.5.2.0.0
 
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -1777,55 +1772,46 @@ packages:
     resolution: {integrity: sha512-0KXvIJQMOImLCVCz9uvvdPgfyWo93aHHp8ui3FrtOP57svqrF/roSSR5pjqL2hcMp0ljeGlU4q9o/rQaAQ3AYA==}
     cpu: [arm]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-arm-musleabihf@4.24.0':
     resolution: {integrity: sha512-it2BW6kKFVh8xk/BnHfakEeoLPv8STIISekpoF+nBgWM4d55CZKc7T4Dx1pEbTnYm/xEKMgy1MNtYuoA8RFIWw==}
     cpu: [arm]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-arm64-gnu@4.24.0':
     resolution: {integrity: sha512-i0xTLXjqap2eRfulFVlSnM5dEbTVque/3Pi4g2y7cxrs7+a9De42z4XxKLYJ7+OhE3IgxvfQM7vQc43bwTgPwA==}
     cpu: [arm64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-arm64-musl@4.24.0':
     resolution: {integrity: sha512-9E6MKUJhDuDh604Qco5yP/3qn3y7SLXYuiC0Rpr89aMScS2UAmK1wHP2b7KAa1nSjWJc/f/Lc0Wl1L47qjiyQw==}
     cpu: [arm64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-linux-powerpc64le-gnu@4.24.0':
     resolution: {integrity: sha512-2XFFPJ2XMEiF5Zi2EBf4h73oR1V/lycirxZxHZNc93SqDN/IWhYYSYj8I9381ikUFXZrz2v7r2tOVk2NBwxrWw==}
     cpu: [ppc64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-riscv64-gnu@4.24.0':
     resolution: {integrity: sha512-M3Dg4hlwuntUCdzU7KjYqbbd+BLq3JMAOhCKdBE3TcMGMZbKkDdJ5ivNdehOssMCIokNHFOsv7DO4rlEOfyKpg==}
     cpu: [riscv64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-s390x-gnu@4.24.0':
     resolution: {integrity: sha512-mjBaoo4ocxJppTorZVKWFpy1bfFj9FeCMJqzlMQGjpNPY9JwQi7OuS1axzNIk0nMX6jSgy6ZURDZ2w0QW6D56g==}
     cpu: [s390x]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-x64-gnu@4.24.0':
     resolution: {integrity: sha512-ZXFk7M72R0YYFN5q13niV0B7G8/5dcQ9JDp8keJSfr3GoZeXEoMHP/HlvqROA3OMbMdfr19IjCeNAnPUG93b6A==}
     cpu: [x64]
     os: [linux]
-    libc: [glibc]
 
   '@rollup/rollup-linux-x64-musl@4.24.0':
     resolution: {integrity: sha512-w1i+L7kAXZNdYl+vFvzSZy8Y1arS7vMgIy8wusXJzRrPyof5LAb02KGr1PD2EkRcl73kHulIID0M501lN+vobQ==}
     cpu: [x64]
     os: [linux]
-    libc: [musl]
 
   '@rollup/rollup-win32-arm64-msvc@4.24.0':
     resolution: {integrity: sha512-VXBrnPWgBpVDCVY6XF3LEW0pOU51KbaHhccHw6AS6vBWIC60eqsH19DAeeObl+g8nKAz04QFdl/Cefta0xQtUQ==}
@@ -2023,7 +2009,7 @@ packages:
       '@perawallet/connect': ^1.4.1
       '@walletconnect/modal': ^2.7.0
       '@walletconnect/sign-client': ^2.23.4
-      algosdk: ^3.0.0
+      algosdk: npm:dt-algosdk@3.9.0-dt.5.2.0.0
       lute-connect: ^1.6.3
       magic-sdk: ^29.4.2
       react: ^17.0.0 || ^18.0.0 || ^19.0.0
@@ -2056,7 +2042,7 @@ packages:
       '@web3auth/base-provider': ^9.0.0
       '@web3auth/modal': ^9.0.0
       '@web3auth/single-factor-auth': ^9.0.0
-      algosdk: ^3.0.0
+      algosdk: npm:dt-algosdk@3.9.0-dt.5.2.0.0
       lute-connect: ^1.6.3
     peerDependenciesMeta:
       '@agoralabs-sh/avm-web-provider':
@@ -3061,8 +3047,8 @@ packages:
     resolution: {integrity: sha512-ZmdL2rui+eB2YwhsWzjInR8LldtZHGDoQ1ugH85ppHKwpUHL7j7rN0Ti9NCnGiQbhaZ11FpR+7ao1dNsmduNUg==}
     engines: {node: '>=12'}
 
-  dt-algosdk@3.9.0-dt.4.1.0.0:
-    resolution: {integrity: sha512-E1DY99dKin93/APXnwWI8zqJAsEQolgp6Ql9s5dttUZ7tL2WGX7BGoo1IDoXjAR/EvXdAmujZqxgdIPGSyh54w==}
+  dt-algosdk@3.9.0-dt.5.2.0.0:
+    resolution: {integrity: sha512-35Ot4TC6cmY4geLSSjnx+XxGAl7L4WhM4uR/bLAiqAFXhTskYkcMxnxk2CqKHZfCbb+pE/UfW3WjaBMLKxcNyA==}
     engines: {node: '>=22.0'}
 
   dunder-proto@1.0.1:
@@ -4080,12 +4066,12 @@ packages:
       react: ^16.8 || ^17 || ^18
       react-dom: ^16.8 || ^17 || ^18
 
-  nfd-ghost-sdk@file:ui/vendor/nfd-ghost-sdk-2.0.0-dt.5.tgz:
-    resolution: {integrity: sha512-1NzblWUfVCOS8FoSXOgEtVijwMTxcgluKz5/kG0GzKwrp8uQkcXum1aFJ2uOGmHHoW6bzJCUAkoQPcxa9iY0mA==, tarball: file:ui/vendor/nfd-ghost-sdk-2.0.0-dt.5.tgz}
-    version: 2.0.0-dt.5
+  nfd-ghost-sdk@file:ui/vendor/nfd-ghost-sdk-2.0.0-dt.6.tgz:
+    resolution: {integrity: sha512-vMGcPNqnHHBhUnrsLZgX3UHBkTRV5B38o2TvB1X+hukfHjCbZhtCj8jBk3UfdcYFDB2cMLb1uUB46L6PoByKYg==, tarball: file:ui/vendor/nfd-ghost-sdk-2.0.0-dt.6.tgz}
+    version: 2.0.0-dt.6
     peerDependencies:
-      '@algorandfoundation/algokit-utils': ^9.2.3-dt.4.1.0.0
-      algosdk: ^3.9.0-dt.4.1.0.0
+      '@algorandfoundation/algokit-utils': npm:@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0
+      algosdk: npm:dt-algosdk@3.9.0-dt.5.2.0.0
 
   node-addon-api@7.1.1:
     resolution: {integrity: sha512-5m3bsyrjFWE1xf7nz7YXdN4udnVtXK6/Yfgn5qnahL6bCkf2yKt4k3nuTKAtT4r3IG8JNR2ncsIMdZuAzJjHQQ==}
@@ -4697,12 +4683,12 @@ packages:
     resolution: {integrity: sha512-oKWePCxqpd6FlLvGV1VU0x7bkPmmCNolxzjMf4NczoDnQcIWrAF+cPtZn5i6n+RfD2d9i0tzpKnG6Yk168yIyw==}
     hasBin: true
 
-  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.13.tgz:
-    resolution: {integrity: sha512-bHM7PKXO49SWc8hDBM8oFZp7IH4XU+uTQRelIwfowRYRwnsOklkI5FOiRlvgeS2y7LEiU+kifL+dfIQRHxw0bQ==, tarball: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.13.tgz}
-    version: 0.3.0-dt.13
+  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.16.tgz:
+    resolution: {integrity: sha512-vVuHZaBU1668+lRhqB2a+gGp7ljpQxipC4uBoefNussFkWg/+Sf9gY4FVHNbsO+bJ/TS7lV2gQhtSUMKGAZX9g==, tarball: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.16.tgz}
+    version: 0.3.0-dt.16
     peerDependencies:
-      '@algorandfoundation/algokit-utils': '>=9.2.0'
-      algosdk: '>=3.5.2'
+      '@algorandfoundation/algokit-utils': npm:@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0
+      algosdk: npm:dt-algosdk@3.9.0-dt.5.2.0.0
 
   reusify@1.0.4:
     resolution: {integrity: sha512-U9nH88a3fc/ekCF1l0/UP1IosiuIjyTh7hBvXVMHYgVcfGvt897Xguj2UOLDeI5BG2m7/uwyaLVT6fbtCwTyzw==}
@@ -5552,10 +5538,10 @@ snapshots:
 
   '@adraffy/ens-normalize@1.11.0': {}
 
-  '@algorandfoundation/algokit-client-generator@6.0.0(@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0(dt-algosdk@3.9.0-dt.4.1.0.0))(dt-algosdk@3.9.0-dt.4.1.0.0)':
+  '@algorandfoundation/algokit-client-generator@6.0.0(@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0))(dt-algosdk@3.9.0-dt.5.2.0.0)':
     dependencies:
-      '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0(dt-algosdk@3.9.0-dt.4.1.0.0)'
-      algosdk: dt-algosdk@3.9.0-dt.4.1.0.0
+      '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0)'
+      algosdk: dt-algosdk@3.9.0-dt.5.2.0.0
       chalk: 5.6.0
       change-case: 5.4.4
       commander: 14.0.0
@@ -5579,10 +5565,10 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@algorandfoundation/xgov-clients@3.0.1(@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0(dt-algosdk@3.9.0-dt.4.1.0.0))(dt-algosdk@3.9.0-dt.4.1.0.0)':
+  '@algorandfoundation/xgov-clients@3.0.1(@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0))(dt-algosdk@3.9.0-dt.5.2.0.0)':
     dependencies:
-      '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0(dt-algosdk@3.9.0-dt.4.1.0.0)'
-      algosdk: dt-algosdk@3.9.0-dt.4.1.0.0
+      '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0)'
+      algosdk: dt-algosdk@3.9.0-dt.5.2.0.0
 
   '@alloc/quick-lru@5.2.0': {}
 
@@ -5730,12 +5716,12 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@blockshake/defly-connect@1.2.1(dt-algosdk@3.9.0-dt.4.1.0.0)':
+  '@blockshake/defly-connect@1.2.1(dt-algosdk@3.9.0-dt.5.2.0.0)':
     dependencies:
       '@likecoin/qr-code-styling': 1.6.6
       '@walletconnect/client': 1.8.0
       '@walletconnect/types': 1.8.0
-      algosdk: dt-algosdk@3.9.0-dt.4.1.0.0
+      algosdk: dt-algosdk@3.9.0-dt.5.2.0.0
       bowser: 2.11.0
       buffer: 6.0.3
       lottie-web: 5.12.2
@@ -5766,9 +5752,9 @@ snapshots:
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
 
-  '@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0(dt-algosdk@3.9.0-dt.4.1.0.0)':
+  '@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0)':
     dependencies:
-      algosdk: dt-algosdk@3.9.0-dt.4.1.0.0
+      algosdk: dt-algosdk@3.9.0-dt.5.2.0.0
       buffer: 6.0.3
 
   '@esbuild/aix-ppc64@0.21.5':
@@ -6251,12 +6237,12 @@ snapshots:
       '@parcel/watcher-win32-ia32': 2.4.1
       '@parcel/watcher-win32-x64': 2.4.1
 
-  '@perawallet/connect@1.5.2(dt-algosdk@3.9.0-dt.4.1.0.0)':
+  '@perawallet/connect@1.5.2(dt-algosdk@3.9.0-dt.5.2.0.0)':
     dependencies:
       '@evanhahn/lottie-web-light': 5.8.1
       '@walletconnect/client': 1.8.0
       '@walletconnect/types': 1.8.0
-      algosdk: dt-algosdk@3.9.0-dt.4.1.0.0
+      algosdk: dt-algosdk@3.9.0-dt.5.2.0.0
       bowser: 2.11.0
       buffer: 6.0.3
       qr-code-styling: 1.6.0-rc.1
@@ -7131,16 +7117,16 @@ snapshots:
 
   '@tsconfig/node18@18.2.4': {}
 
-  '@txnlab/use-wallet-react@4.6.0(@blockshake/defly-connect@1.2.1(dt-algosdk@3.9.0-dt.4.1.0.0))(@perawallet/connect@1.5.2(dt-algosdk@3.9.0-dt.4.1.0.0))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(dt-algosdk@3.9.0-dt.4.1.0.0)(lute-connect@1.5.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@txnlab/use-wallet-react@4.6.0(@blockshake/defly-connect@1.2.1(dt-algosdk@3.9.0-dt.5.2.0.0))(@perawallet/connect@1.5.2(dt-algosdk@3.9.0-dt.5.2.0.0))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(dt-algosdk@3.9.0-dt.5.2.0.0)(lute-connect@1.5.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@tanstack/react-store': 0.8.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@txnlab/use-wallet': 4.6.0(@blockshake/defly-connect@1.2.1(dt-algosdk@3.9.0-dt.4.1.0.0))(@perawallet/connect@1.5.2(dt-algosdk@3.9.0-dt.4.1.0.0))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(dt-algosdk@3.9.0-dt.4.1.0.0)(lute-connect@1.5.1)
-      algosdk: dt-algosdk@3.9.0-dt.4.1.0.0
+      '@txnlab/use-wallet': 4.6.0(@blockshake/defly-connect@1.2.1(dt-algosdk@3.9.0-dt.5.2.0.0))(@perawallet/connect@1.5.2(dt-algosdk@3.9.0-dt.5.2.0.0))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(dt-algosdk@3.9.0-dt.5.2.0.0)(lute-connect@1.5.1)
+      algosdk: dt-algosdk@3.9.0-dt.5.2.0.0
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
     optionalDependencies:
-      '@blockshake/defly-connect': 1.2.1(dt-algosdk@3.9.0-dt.4.1.0.0)
-      '@perawallet/connect': 1.5.2(dt-algosdk@3.9.0-dt.4.1.0.0)
+      '@blockshake/defly-connect': 1.2.1(dt-algosdk@3.9.0-dt.5.2.0.0)
+      '@perawallet/connect': 1.5.2(dt-algosdk@3.9.0-dt.5.2.0.0)
       '@walletconnect/modal': 2.7.0(@types/react@18.3.11)(react@18.3.1)
       '@walletconnect/sign-client': 2.20.2(typescript@5.6.3)(zod@3.23.8)
       lute-connect: 1.5.1
@@ -7151,13 +7137,13 @@ snapshots:
       - '@web3auth/modal'
       - '@web3auth/single-factor-auth'
 
-  '@txnlab/use-wallet@4.6.0(@blockshake/defly-connect@1.2.1(dt-algosdk@3.9.0-dt.4.1.0.0))(@perawallet/connect@1.5.2(dt-algosdk@3.9.0-dt.4.1.0.0))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(dt-algosdk@3.9.0-dt.4.1.0.0)(lute-connect@1.5.1)':
+  '@txnlab/use-wallet@4.6.0(@blockshake/defly-connect@1.2.1(dt-algosdk@3.9.0-dt.5.2.0.0))(@perawallet/connect@1.5.2(dt-algosdk@3.9.0-dt.5.2.0.0))(@walletconnect/modal@2.7.0(@types/react@18.3.11)(react@18.3.1))(@walletconnect/sign-client@2.20.2(typescript@5.6.3)(zod@3.23.8))(dt-algosdk@3.9.0-dt.5.2.0.0)(lute-connect@1.5.1)':
     dependencies:
       '@tanstack/store': 0.8.0
-      algosdk: dt-algosdk@3.9.0-dt.4.1.0.0
+      algosdk: dt-algosdk@3.9.0-dt.5.2.0.0
     optionalDependencies:
-      '@blockshake/defly-connect': 1.2.1(dt-algosdk@3.9.0-dt.4.1.0.0)
-      '@perawallet/connect': 1.5.2(dt-algosdk@3.9.0-dt.4.1.0.0)
+      '@blockshake/defly-connect': 1.2.1(dt-algosdk@3.9.0-dt.5.2.0.0)
+      '@perawallet/connect': 1.5.2(dt-algosdk@3.9.0-dt.5.2.0.0)
       '@walletconnect/modal': 2.7.0(@types/react@18.3.11)(react@18.3.1)
       '@walletconnect/sign-client': 2.20.2(typescript@5.6.3)(zod@3.23.8)
       lute-connect: 1.5.1
@@ -8449,7 +8435,7 @@ snapshots:
 
   dotenv@16.4.5: {}
 
-  dt-algosdk@3.9.0-dt.4.1.0.0:
+  dt-algosdk@3.9.0-dt.5.2.0.0:
     dependencies:
       algorand-msgpack: 1.1.0
       hi-base32: 0.5.1
@@ -9624,10 +9610,10 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
-  nfd-ghost-sdk@file:ui/vendor/nfd-ghost-sdk-2.0.0-dt.5.tgz(@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0(dt-algosdk@3.9.0-dt.4.1.0.0))(dt-algosdk@3.9.0-dt.4.1.0.0):
+  nfd-ghost-sdk@file:ui/vendor/nfd-ghost-sdk-2.0.0-dt.6.tgz(@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0))(dt-algosdk@3.9.0-dt.5.2.0.0):
     dependencies:
-      '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0(dt-algosdk@3.9.0-dt.4.1.0.0)'
-      algosdk: dt-algosdk@3.9.0-dt.4.1.0.0
+      '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0)'
+      algosdk: dt-algosdk@3.9.0-dt.5.2.0.0
 
   node-addon-api@7.1.1: {}
 
@@ -10260,10 +10246,10 @@ snapshots:
       path-parse: 1.0.7
       supports-preserve-symlinks-flag: 1.0.0
 
-  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.13.tgz(@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0(dt-algosdk@3.9.0-dt.4.1.0.0))(dt-algosdk@3.9.0-dt.4.1.0.0):
+  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.16.tgz(@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0))(dt-algosdk@3.9.0-dt.5.2.0.0):
     dependencies:
-      '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@9.2.3-dt.4.1.0.0(dt-algosdk@3.9.0-dt.4.1.0.0)'
-      algosdk: dt-algosdk@3.9.0-dt.4.1.0.0
+      '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0)'
+      algosdk: dt-algosdk@3.9.0-dt.5.2.0.0
 
   reusify@1.0.4: {}
 
