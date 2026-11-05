@@ -314,6 +314,64 @@ export function boundSegments(segments: LaneSegment[], minLength: number): LaneS
   return joined
 }
 
+/** How a lane is drawn: its width in pixels, the times at its ends, and its smallest marks. */
+export interface LaneGeometry {
+  width: number
+  fromTime: number
+  toTime: number
+  /** The narrowest a segment is drawn */
+  minSegmentPx: number
+  /** How far either side of an upgrade's line the pointer still picks it */
+  markerReachPx: number
+}
+
+/** The upgrade marker or segment under the pointer, by its index in the lane. */
+export type LaneHit = { kind: 'marker'; index: number } | { kind: 'segment'; index: number }
+
+/**
+ * What the pointer is over at `x` pixels along a lane, as the lane is drawn: the nearest upgrade
+ * marker within reach, or else the segment painted on top there. A short segment is widened to the
+ * minimum and paints over its longer neighbours; the last one keeps to the lane's end.
+ */
+export function laneHit(
+  lane: Pick<ValidatorLane, 'segments' | 'upgrades'>,
+  x: number,
+  geometry: LaneGeometry,
+): LaneHit | undefined {
+  const { width, fromTime, toTime, minSegmentPx, markerReachPx } = geometry
+  const span = Math.max(1, toTime - fromTime)
+  const px = (time: number) =>
+    ((Math.min(Math.max(time, fromTime), toTime) - fromTime) / span) * width
+
+  let marker: number | undefined
+  let nearest = Infinity
+  lane.upgrades.forEach((upgrade, i) => {
+    // Drawn no further right than where the last segment's minimum width starts
+    const distance = Math.abs(Math.min(px(upgrade.timestamp), width - minSegmentPx) - x)
+    if (distance <= markerReachPx && distance <= nearest) {
+      marker = i
+      nearest = distance
+    }
+  })
+  if (marker !== undefined) return { kind: 'marker', index: marker }
+
+  let segment: number | undefined
+  let shortest = Infinity
+  lane.segments.forEach(({ start, end, version }, i) => {
+    if (!version) return
+    const last = i === lane.segments.length - 1
+    const drawn = Math.max(minSegmentPx, (last ? width : px(end)) - px(start))
+    const left = last ? width - drawn : px(start)
+    if (x < left || x > left + drawn) return
+    // Painted longest first, so the shortest is on top, and the later of equals
+    if (end - start <= shortest) {
+      segment = i
+      shortest = end - start
+    }
+  })
+  return segment === undefined ? undefined : { kind: 'segment', index: segment }
+}
+
 /**
  * Each validator's lane from `fromTime` to `toTime` (up to `toRound`): the oldest version among
  * its pools as it changed, and the upgrades that changed it. Validators whose pools never

@@ -43,7 +43,10 @@ import {
   firstReached,
   isBehind,
   LANE_SORTS,
+  LaneHit,
+  laneHit,
   laneReleases,
+  LaneSegment,
   LaneSort,
   NodeUpgrade,
   ReleaseColor,
@@ -299,6 +302,9 @@ function UpgradesBody() {
 /** The narrowest a lane segment is drawn, so a release held briefly (or just reached) shows */
 const MIN_SEGMENT_PX = 6
 
+/** How far either side of an upgrade's line the pointer still picks it over the segment beneath */
+const MARKER_REACH_PX = 4
+
 /** The lanes' columns: validator, lane, current release */
 const LANE_GRID =
   'grid grid-cols-[10rem_1fr_3.5rem] sm:grid-cols-[18rem_1fr_4rem] items-center gap-x-3'
@@ -428,6 +434,7 @@ function Lanes({
               latest={latest}
               firstTimes={firstTimes}
               fromTime={fromTime}
+              toTime={toTime}
               focus={focus}
               at={at}
             />
@@ -486,6 +493,7 @@ interface LaneRowProps {
   /** When the first validator reached each release */
   firstTimes: Map<string, number>
   fromTime: number
+  toTime: number
   /** The release picked in the legend: the others go muted */
   focus?: string
   /** Where a time falls along the lane, as a CSS length */
@@ -500,19 +508,13 @@ const LaneRow = React.memo(function LaneRow({
   latest,
   firstTimes,
   fromTime,
+  toTime,
   focus,
   at,
 }: LaneRowProps) {
   const [open, setOpen] = React.useState(false)
+  const toggle = React.useCallback(() => setOpen((value) => !value), [])
   const detailsId = React.useId()
-  // Longest first, so a short segment widened to the minimum paints over its neighbours
-  const paintOrder = React.useMemo(
-    () =>
-      lane.segments
-        .map((segment, i) => ({ segment, last: i === lane.segments.length - 1 }))
-        .sort((a, b) => b.segment.end - b.segment.start - (a.segment.end - a.segment.start)),
-    [lane.segments],
-  )
   const behind = isBehind(lane.current?.release, latest)
 
   return (
@@ -525,7 +527,7 @@ const LaneRow = React.memo(function LaneRow({
             aria-expanded={open}
             aria-controls={detailsId}
             aria-label={`${open ? 'Hide' : 'Show'} upgrades and pools of ${name}`}
-            onClick={() => setOpen((value) => !value)}
+            onClick={toggle}
           >
             <ChevronRight className={cn('h-4 w-4 transition-transform', open && 'rotate-90')} />
           </button>
@@ -554,59 +556,15 @@ const LaneRow = React.memo(function LaneRow({
             </span>
           )}
         </div>
-        <div
-          className="relative h-5 overflow-hidden rounded-sm bg-muted cursor-pointer"
-          onClick={() => setOpen((value) => !value)}
-        >
-          <span className="sr-only">
-            {lane.segments
-              .flatMap((segment) =>
-                segment.version
-                  ? [
-                      `${segment.version.release} from ${dayjs.unix(segment.start).format('ll')} to ${dayjs.unix(segment.end).format('ll')}`,
-                    ]
-                  : [],
-              )
-              .join('; ')}
-          </span>
-          {paintOrder.map(({ segment, last }) =>
-            segment.version ? (
-              <Tooltip
-                key={segment.start}
-                content={`${segment.version.release} · ${dayjs.unix(segment.start).format('ll')} – ${dayjs.unix(segment.end).format('ll')}`}
-              >
-                <div
-                  className={cn(
-                    'absolute inset-y-0 bg-[--release-light] dark:bg-[--release-dark] transition-opacity',
-                    focus !== undefined && focus !== segment.version.release && 'opacity-15',
-                  )}
-                  style={{
-                    // The last one keeps to the lane's end however much its minimum widens it
-                    ...(last ? { right: 0 } : { left: at(segment.start) }),
-                    width: `max(${MIN_SEGMENT_PX}px, calc(${last ? '100%' : at(segment.end)} - ${at(segment.start)}))`,
-                    ...releaseStyle(colors.get(segment.version.release)),
-                  }}
-                />
-              </Tooltip>
-            ) : null,
-          )}
-          {lane.upgrades.map((upgrade) => (
-            <Tooltip
-              key={`${upgrade.round}:${upgrade.node}:${upgrade.to.full}`}
-              content={upgradeSummary(upgrade)}
-            >
-              <span
-                className="absolute inset-y-0 w-2 -translate-x-1"
-                // No further right than where the last segment's minimum width starts, so it marks
-                // that segment's start rather than covering it
-                style={{ left: `min(${at(upgrade.timestamp)}, calc(100% - ${MIN_SEGMENT_PX}px))` }}
-                aria-hidden
-              >
-                <span className="mx-auto block h-full w-0.5 bg-background" />
-              </span>
-            </Tooltip>
-          ))}
-        </div>
+        <LaneBar
+          lane={lane}
+          colors={colors}
+          focus={focus}
+          fromTime={fromTime}
+          toTime={toTime}
+          at={at}
+          onToggle={toggle}
+        />
         <span
           className={cn('font-mono text-xs', behind ? 'text-foreground' : 'text-muted-foreground')}
         >
@@ -625,6 +583,181 @@ const LaneRow = React.memo(function LaneRow({
     </div>
   )
 })
+
+interface LaneBarProps {
+  lane: ValidatorLane
+  colors: Map<string, ReleaseColor>
+  focus?: string
+  fromTime: number
+  toTime: number
+  at: (time: number) => string
+  onToggle: () => void
+}
+
+/** A lane's bar of releases and upgrades, with one tooltip over whatever the pointer is on. */
+function LaneBar({ lane, colors, focus, fromTime, toTime, at, onToggle }: LaneBarProps) {
+  // Where the pointer is along the bar. What it's over is found from the lane on each render, so a
+  // lane that changes under a still pointer shows what's under it now. It's kept after the pointer
+  // leaves, so the tooltip fades out with its text
+  const [pointer, setPointer] = React.useState<{ x: number; width: number }>()
+  const [hovering, setHovering] = React.useState(false)
+
+  // Longest first, so a short segment widened to the minimum paints over its neighbours
+  const paintOrder = React.useMemo(
+    () =>
+      lane.segments
+        .map((segment, i) => ({ segment, last: i === lane.segments.length - 1 }))
+        .sort((a, b) => b.segment.end - b.segment.start - (a.segment.end - a.segment.start)),
+    [lane.segments],
+  )
+  const summary = React.useMemo(
+    () =>
+      lane.segments
+        .flatMap((segment) =>
+          segment.version
+            ? [
+                `${segment.version.release} from ${dayjs.unix(segment.start).format('ll')} to ${dayjs.unix(segment.end).format('ll')}`,
+              ]
+            : [],
+        )
+        .join('; '),
+    [lane.segments],
+  )
+  // Kept apart from the pointer, which re-renders the bar as it moves
+  const marks = React.useMemo(
+    () => (
+      <>
+        {paintOrder.map(({ segment, last }) =>
+          segment.version ? (
+            <div
+              key={segment.start}
+              className={cn(
+                'absolute inset-y-0 bg-[--release-light] dark:bg-[--release-dark] transition-opacity',
+                focus !== undefined && focus !== segment.version.release && 'opacity-15',
+              )}
+              style={{
+                ...segmentPlacement(segment, last, at),
+                ...releaseStyle(colors.get(segment.version.release)),
+              }}
+            />
+          ) : null,
+        )}
+        {lane.upgrades.map((upgrade) => (
+          <span
+            key={`${upgrade.round}:${upgrade.node}:${upgrade.to.full}`}
+            className="absolute inset-y-0 w-2 -translate-x-1"
+            style={markerPlacement(upgrade, at)}
+            aria-hidden
+          >
+            <span className="mx-auto block h-full w-0.5 bg-background" />
+          </span>
+        ))}
+      </>
+    ),
+    [paintOrder, lane.upgrades, focus, colors, at],
+  )
+
+  const hit = React.useMemo(
+    () =>
+      pointer &&
+      laneHit(lane, pointer.x, {
+        width: pointer.width,
+        fromTime,
+        toTime,
+        minSegmentPx: MIN_SEGMENT_PX,
+        markerReachPx: MARKER_REACH_PX,
+      }),
+    [lane, pointer, fromTime, toTime],
+  )
+  const hitKind = hit?.kind
+  const hitIndex = hit?.index
+  const hovered = React.useMemo(
+    () =>
+      hitKind === undefined || hitIndex === undefined
+        ? undefined
+        : laneHitTooltip(lane, { kind: hitKind, index: hitIndex }, at),
+    [lane, hitKind, hitIndex, at],
+  )
+
+  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    // A tap opens the details instead
+    if (event.pointerType === 'touch') return
+    const rect = event.currentTarget.getBoundingClientRect()
+    setPointer({ x: event.clientX - rect.left, width: rect.width })
+    setHovering(true)
+  }
+
+  return (
+    <div
+      className="relative h-5 overflow-hidden rounded-sm bg-muted cursor-pointer"
+      onClick={onToggle}
+      onPointerMove={onPointerMove}
+      onPointerLeave={() => setHovering(false)}
+    >
+      <span className="sr-only">{summary}</span>
+      {marks}
+      {hovered && (
+        <Tooltip
+          content={hovered.content}
+          open={hovering}
+          onOpenChange={(value) => !value && setHovering(false)}
+          follow
+        >
+          {/* Moves over the hovered item for the tooltip to point at; the bar takes the pointer */}
+          <span
+            className={cn('pointer-events-none absolute inset-y-0', hovered.className)}
+            style={hovered.style}
+            aria-hidden
+          />
+        </Tooltip>
+      )}
+    </div>
+  )
+}
+
+/** Where a segment is drawn along its lane. */
+function segmentPlacement(
+  segment: LaneSegment,
+  last: boolean,
+  at: (time: number) => string,
+): React.CSSProperties {
+  return {
+    // The last one keeps to the lane's end however much its minimum widens it
+    ...(last ? { right: 0 } : { left: at(segment.start) }),
+    width: `max(${MIN_SEGMENT_PX}px, calc(${last ? '100%' : at(segment.end)} - ${at(segment.start)}))`,
+  }
+}
+
+/**
+ * Where an upgrade's marker is drawn: no further right than where the last segment's minimum width
+ * starts, so it marks that segment's start rather than covering it.
+ */
+function markerPlacement(upgrade: NodeUpgrade, at: (time: number) => string): React.CSSProperties {
+  return { left: `min(${at(upgrade.timestamp)}, calc(100% - ${MIN_SEGMENT_PX}px))` }
+}
+
+/** The hovered item's tooltip text, and where its anchor goes; undefined if it's gone. */
+function laneHitTooltip(
+  lane: ValidatorLane,
+  hit: LaneHit,
+  at: (time: number) => string,
+): { content: string; className?: string; style: React.CSSProperties } | undefined {
+  if (hit.kind === 'marker') {
+    const upgrade = lane.upgrades[hit.index]
+    if (!upgrade) return undefined
+    return {
+      content: upgradeSummary(upgrade),
+      className: 'w-2 -translate-x-1',
+      style: markerPlacement(upgrade, at),
+    }
+  }
+  const segment = lane.segments[hit.index]
+  if (!segment?.version) return undefined
+  return {
+    content: `${segment.version.release} · ${dayjs.unix(segment.start).format('ll')} – ${dayjs.unix(segment.end).format('ll')}`,
+    style: segmentPlacement(segment, hit.index === lane.segments.length - 1, at),
+  }
+}
 
 /** A validator's upgrades over the window and its pools as they stand at its end. */
 interface LaneDetailsProps {

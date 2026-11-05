@@ -27,13 +27,26 @@ interface TooltipProps {
   content: React.ReactNode
   children: React.ReactNode
   variant?: 'default' | 'primary'
+  /** Opens and closes it from outside, rather than on hover and focus */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  /** Repositions it every frame while open, for a trigger that moves */
+  follow?: boolean
 }
 
-export function Tooltip({ content, children, variant = 'default' }: TooltipProps) {
+export function Tooltip({
+  content,
+  children,
+  variant = 'default',
+  open,
+  onOpenChange,
+  follow = false,
+}: TooltipProps) {
   const tooltip = (
-    <TooltipPrimative>
+    <TooltipPrimative open={open} onOpenChange={onOpenChange}>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
       <TooltipContent
+        updatePositionStrategy={follow ? 'always' : 'optimized'}
         className={cn(
           variant === 'default'
             ? 'bg-stone-900 text-white font-semibold tracking-tight dark:bg-white dark:text-stone-900'

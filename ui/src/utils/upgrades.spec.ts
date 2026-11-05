@@ -5,9 +5,11 @@ import {
   boundSegments,
   firstReached,
   isBehind,
+  laneHit,
   laneReleases,
   LaneSegment,
   MAX_LANE_SEGMENTS,
+  NodeUpgrade,
   nodeUpgrades,
   PoolVersionHistory,
   reachedAt,
@@ -308,6 +310,46 @@ describe('boundSegments', () => {
   it('leaves segments long enough alone', () => {
     const segments = [seg(0, 50, '5.0.2'), seg(50, 100, '5.0.4')]
     expect(boundSegments(segments, 10)).toEqual(segments)
+  })
+})
+
+describe('laneHit', () => {
+  const seg = (start: number, end: number, release?: string): LaneSegment => ({
+    start,
+    end,
+    version: release ? parseAlgodVersion(V(release)) : undefined,
+  })
+  // A pixel a second
+  const geometry = { width: 100, fromTime: 0, toTime: 100, minSegmentPx: 6, markerReachPx: 4 }
+  const lane = (segments: LaneSegment[], timestamps: number[] = []) => ({
+    segments,
+    upgrades: timestamps.map((timestamp) => ({ timestamp }) as NodeUpgrade),
+  })
+
+  it('picks the segment painted on top, a short one widened over its neighbour', () => {
+    const l = lane([seg(0, 50, '5.0.2'), seg(50, 51, '5.0.3'), seg(51, 100, '5.0.4')])
+    expect(laneHit(l, 20, geometry)).toEqual({ kind: 'segment', index: 0 })
+    expect(laneHit(l, 54, geometry)).toEqual({ kind: 'segment', index: 1 })
+    expect(laneHit(l, 80, geometry)).toEqual({ kind: 'segment', index: 2 })
+  })
+
+  it('keeps a short last segment to the lane end', () => {
+    const l = lane([seg(0, 99, '5.0.2'), seg(99, 100, '5.0.3')])
+    expect(laneHit(l, 95, geometry)).toEqual({ kind: 'segment', index: 1 })
+    expect(laneHit(l, 93, geometry)).toEqual({ kind: 'segment', index: 0 })
+  })
+
+  it('prefers an upgrade marker within reach', () => {
+    const l = lane([seg(0, 50, '5.0.2'), seg(50, 100, '5.0.3')], [30, 50, 100])
+    expect(laneHit(l, 33, geometry)).toEqual({ kind: 'marker', index: 0 })
+    expect(laneHit(l, 35, geometry)).toEqual({ kind: 'segment', index: 0 })
+    expect(laneHit(l, 49, geometry)).toEqual({ kind: 'marker', index: 1 })
+    // Drawn where the last segment's minimum starts
+    expect(laneHit(l, 92, geometry)).toEqual({ kind: 'marker', index: 2 })
+  })
+
+  it('finds nothing where no version was reported', () => {
+    expect(laneHit(lane([seg(0, 10), seg(10, 100, '5.0.2')]), 5, geometry)).toBeUndefined()
   })
 })
 
