@@ -96,7 +96,7 @@ File-based routes in `src/routes/`. Data flow is: `src/api/queries.ts` exports `
 
 `src/api/clients.ts` is the only place clients are constructed. Note the pairing: `getValidatorClient`/`getStakingPoolClient` take a signer for writes, while `getSimulateValidatorClient`/`getSimulateStakingPoolClient` default the sender to `FEE_SINK` for read-only simulate calls that must work with no wallet connected. Reuse those rather than instantiating clients elsewhere.
 
-`src/api/contracts.ts` holds every protocol read/write; `src/utils/contracts.ts` holds the derived math (saturation, max stake, reward eligibility, pool metrics) — check there before writing new calculations. NFD (nf.domains) supplies names and some entry-gating lookups; the Nodely API supplies node performance indicators.
+`src/api/contracts.ts` holds every protocol read/write; `src/utils/contracts.ts` holds the derived math (saturation, max stake, reward eligibility, pool metrics) — check there before writing new calculations. NFDs (names, avatars and the NFD entry-gating lookups) are read on chain through `nfd-ghost-sdk` (`src/api/nfd.ts`), at any round; there is no NFD REST API fallback, so a read node without read-only queries (or localnet, with no NFD registry) shows addresses instead. The Nodely API supplies node performance indicators.
 
 **Bulk reads, not per-validator calls.** The dashboard reads on-chain state in aggregate, and new code should not reintroduce per-validator or per-pool round trips:
 
@@ -104,7 +104,7 @@ File-based routes in `src/routes/`. Data flow is: `src/api/queries.ts` exports `
 - Every pool is created by the registry's app account, so `fetchPoolGlobalStates` gets all their global state (`lastPayout`, `algodVer`) from one `accountInformation` read.
 - Both require **algosdk ≥ 3.6** for `getApplicationBoxes(...).include('values')` with cursor pagination. 3.6 also made `asset.params` optional — hence the `?.` on every `params` access.
 
-**Caching and pacing.** `src/lib/queryPersister.ts` persists an allowlist of query key roots to IndexedDB (chosen over localStorage because protocol data is full of bigints, which structured clone handles natively), busted on `__APP_VERSION__`. `src/hooks/useQueuedQueries.ts` meters batches of queries, with `src/utils/rateLimit.ts` learning a per-host batch size (AIMD). `src/lib/axiosNfdApi.ts` layers an HTTP cache plus retry under the NFD queries — note the interceptor registration order there is load bearing and covered by a test.
+**Caching and pacing.** `src/lib/queryPersister.ts` persists an allowlist of query key roots to IndexedDB (chosen over localStorage because protocol data is full of bigints, which structured clone handles natively), busted on `__APP_VERSION__`. `src/hooks/useQueuedQueries.ts` meters batches of queries, with `src/utils/rateLimit.ts` learning a per-host batch size (AIMD).
 
 Config is per-network via `vite --mode <network>` → `.env.<network>`. `ui/.env.template` carries the canonical block for every network (localnet/testnet/fnet/mainnet) and is what bootstrap slices `.env.localnet` out of; `.env.*` is gitignored, so update `.env.template` when an app id changes.
 

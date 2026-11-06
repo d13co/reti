@@ -644,10 +644,7 @@ export function setValidatorQueriesData(queryClient: QueryClient, data: Validato
     )
   }
   if (data.nfd) {
-    queryClient.setQueryData<Nfd>(
-      ['nfd', data.config.nfdForInfo.toString(), { view: 'full' }, latest],
-      data.nfd,
-    )
+    queryClient.setQueryData<Nfd>(['nfd', data.config.nfdForInfo.toString(), latest], data.nfd)
   }
   if (data.gatingAssets) {
     data.gatingAssets.forEach((asset) => {

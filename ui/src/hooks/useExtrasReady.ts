@@ -3,8 +3,9 @@ import * as React from 'react'
 
 /**
  * Key roots that hold nothing up: the extras themselves (Nodely, realised APY), and NFD names,
- * which come from another server and so don't compete with the node's reads. Everything else,
- * the page's own reads and its history charts, loads before the extras.
+ * which the page shows addresses in place of until they load (each round's are one batched read
+ * on the read node). Everything else, the page's own reads and its history charts, loads before
+ * the extras.
  */
 export const LATE_QUERY_ROOTS = new Set([
   'nodely-apy',

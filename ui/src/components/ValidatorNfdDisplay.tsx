@@ -35,7 +35,9 @@ const ValidatorNfdDisplay = React.memo(
     return (
       prevProps.validatorId === nextProps.validatorId &&
       prevProps.isSunsetted === nextProps.isSunsetted &&
-      prevProps.nfd.name === nextProps.nfd.name
+      prevProps.className === nextProps.className &&
+      // A new object, not only a new name: its avatar or state may differ (see NfdDisplayBase)
+      prevProps.nfd === nextProps.nfd
     )
   },
 )

@@ -104,11 +104,9 @@ export function useStakersChartData({
   // As of the round where the read node supports it; the round last shown in full stands in
   const nfdQueries = useQueries({
     queries: stakerAddresses.map((address) => ({
-      ...nfdLookupQueryOptions(address, undefined, undefined, round),
+      ...nfdLookupQueryOptions(address, round),
       placeholderData: () =>
-        queryClient.getQueryData(
-          nfdLookupQueryOptions(address, undefined, undefined, shownRound.current).queryKey,
-        ),
+        queryClient.getQueryData(nfdLookupQueryOptions(address, shownRound.current).queryKey),
     })),
   })
 

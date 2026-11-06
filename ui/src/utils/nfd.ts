@@ -102,18 +102,17 @@ export function getNfdProfileUrl(name: string): string {
  */
 export const getNfdAvatarUrl = (nfd: Nfd): string => {
   const baseUrl = getNfdAppFromViteEnvironment()
-  const url = nfd?.properties?.userDefined?.avatar || nfd?.properties?.verified?.avatar
+  const url = nfd?.properties?.userDefined?.avatar
 
   const isAvailable = nfd.state === 'available'
   const isForSale = nfd.state === 'forSale'
-  const isReserved = nfd.state === 'reserved'
   const isCurated = nfd.category === 'curated'
 
   if (!url && isCurated) {
     return `${baseUrl}/img/nfd-image-placeholder_gold.jpg`
   }
 
-  const showAvailablePlaceholder = isAvailable || isForSale || isReserved
+  const showAvailablePlaceholder = isAvailable || isForSale
 
   if (!url && showAvailablePlaceholder) {
     return `${baseUrl}/img/nfd-image-placeholder_gray.jpg`

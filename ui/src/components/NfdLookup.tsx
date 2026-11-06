@@ -1,9 +1,8 @@
-import { AxiosError } from 'axios'
 import { ArrowUpRight, Check, TriangleAlert } from 'lucide-react'
 import * as React from 'react'
 import { FieldPath, FieldValues, UseFormReturn } from 'react-hook-form'
 import { useDebouncedCallback } from 'use-debounce'
-import { fetchNfd, isNfdNotFoundError } from '@/api/nfd'
+import { fetchNfd, isNfdNotFoundError, isNfdUnavailableError } from '@/api/nfd'
 import { Button } from '@/components/ui/button'
 import { FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
@@ -15,7 +14,6 @@ import { cn } from '@/utils/ui'
 const ERROR_NOT_FOUND = 'NFD not found'
 const ERROR_NOT_OWNED = 'NFD not owned by active address'
 const ERROR_FAILED = 'Failed to fetch NFD'
-const ERROR_UNKNOWN = 'An unknown error occurred'
 const WARNING_VERIFIED = 'NFD already has a verified address'
 
 const NFD_APP_URL = getNfdAppFromViteEnvironment()
@@ -59,7 +57,7 @@ export function NfdLookup<
 
   const fetchNfdRecord = async (value: string) => {
     try {
-      const nfdRecord = await fetchNfd(value, { view: 'brief' })
+      const nfdRecord = await fetchNfd(value)
 
       if (validateOwner && nfdRecord.owner !== activeAddress) {
         throw new Error(ERROR_NOT_OWNED)
@@ -75,18 +73,13 @@ export function NfdLookup<
       let message: string
       if (isNfdNotFoundError(error)) {
         message = ERROR_NOT_FOUND
-      } else if (error instanceof AxiosError && error.response) {
-        // Handle HTTP errors
+      } else if (isNfdUnavailableError(error)) {
+        message = (error as Error).message
+      } else if (error instanceof Error && error.message === ERROR_NOT_OWNED) {
+        message = ERROR_NOT_OWNED
+      } else {
         console.error(error)
         message = ERROR_FAILED
-      } else if (error instanceof Error) {
-        // Handle non-HTTP errors
-        console.error(error)
-        message = error.message
-      } else {
-        // Handle unknown errors
-        console.error(error)
-        message = ERROR_UNKNOWN
       }
       form.setError(name, { type: 'manual', message })
     } finally {

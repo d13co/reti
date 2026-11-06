@@ -29,8 +29,11 @@ const PERSISTED_QUERY_ROOTS = new Set([
   'ipfs-url',
 ])
 
-/** Bumped when a persisted entry changes shape within an app version (2: pool states as a plain object). */
-const CACHE_SHAPE = 2
+/**
+ * Bumped when a persisted entry changes shape within an app version (2: pool states as a plain
+ * object; 3: NFD keys without the REST API's view, and NFDs in the SDK's shape).
+ */
+const CACHE_SHAPE = 3
 
 /** Nothing older than this is rehydrated, however long it sat in storage. */
 const MAX_AGE = 1000 * 60 * 60 * 24 // 24 hours

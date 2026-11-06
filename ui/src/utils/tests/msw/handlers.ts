@@ -20,8 +20,6 @@ import { appFixtures } from '@/utils/tests/fixtures/applications'
 import { boxFixtures } from '@/utils/tests/fixtures/boxes'
 import { methodFixtures } from '@/utils/tests/fixtures/methods'
 import { boxNameKey, parseBoxNameBytes } from '@/utils/tests/utils'
-import { MOCK_ROOT_NFD } from '@/utils/tests/fixtures/nfd'
-import { ACCOUNT_1 } from '@/utils/tests/fixtures/accounts'
 
 const handlers = [
   http.get('http://localhost:4001/v2/blocks/:block', async ({ params, request }) => {
@@ -323,36 +321,6 @@ const handlers = [
   }),
   http.get('https://afmetrics.api.nodely.io/v1/realtime/reti/pool/:address/apy', async () => {
     return HttpResponse.json({ apy: MOCK_POOL_APY, total_external_deposits: MOCK_EXT_DEPOSITS })
-  }),
-  http.get('http://localhost/nfd/lookup', async ({ request }) => {
-    try {
-      const url = new URL(request.url)
-      const address = url.searchParams.get('address')
-
-      // Return mock NFD data for ACCOUNT_1, null for others
-      if (address === ACCOUNT_1) {
-        return HttpResponse.json({
-          ...MOCK_ROOT_NFD,
-          name: 'account1.algo',
-          owner: ACCOUNT_1,
-        })
-      }
-
-      // Return 404 for addresses without NFDs
-      return new HttpResponse(null, { status: 404 })
-    } catch (error) {
-      console.error('Error handling NFD lookup:', error)
-      return HttpResponse.error()
-    }
-  }),
-  http.options('http://localhost/nfd/lookup', () => {
-    return new HttpResponse(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': '*',
-      },
-    })
   }),
 ]
 

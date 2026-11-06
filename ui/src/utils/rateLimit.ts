@@ -2,14 +2,14 @@ import { isHistoryUnavailable } from 'algosdk'
 import { causes } from '@/utils/readErrors'
 
 /**
- * Upstreams the dashboard fans out to. Limits are learned per host because they are separate
- * services with separate budgets - a 429 from NFD says nothing about what algod can take.
+ * Upstreams the dashboard fans out to. Limits are learned per host, as separate services have
+ * separate budgets. Only algod for now: NFDs are read through it (`nfd-ghost-sdk`).
  *
  * Nodely is not listed: the only queue that touches it is validator metrics, and
  * `fetchNodelyVotingPerf` swallows its failures, so no Nodely rate limiting ever reaches a
  * query result to learn from.
  */
-export type RateLimitedHost = 'algod' | 'nfd'
+export type RateLimitedHost = 'algod'
 
 interface HostLimits {
   /** Floor. Must be >= 1 so the queue can never converge to a stall. */
@@ -26,7 +26,6 @@ interface HostLimits {
  */
 const HOST_LIMITS: Record<RateLimitedHost, HostLimits> = {
   algod: { min: 2, max: 8, initial: 4 },
-  nfd: { min: 2, max: 12, initial: 6 },
 }
 
 /** Clean batch ticks required before probing one step higher. */
@@ -37,8 +36,8 @@ const STORAGE_PREFIX = 'reti-batch-size:'
 const RATE_LIMIT_STATUSES = new Set([429, 503])
 
 /**
- * Rate limiting reaches us in three shapes: an `AxiosError` (NFD, Nodely), an algosdk client
- * error carrying a bare `status`, and - when a fetch layer flattens it - a message string.
+ * Rate limiting reaches us in three shapes: an algosdk client error carrying a bare `status`,
+ * an `AxiosError` (Nodely), and - when a fetch layer flattens it - a message string.
  */
 export function isRateLimitError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {

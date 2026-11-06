@@ -16,7 +16,7 @@ export function useValidatorNames(
   )
   const nfdQueries = useQueries({
     queries: nfdAppIds.map((nfdAppId) => ({
-      ...nfdQueryOptions(nfdAppId, undefined, undefined, round),
+      ...nfdQueryOptions(nfdAppId, round),
       enabled: nfdAppId > 0n,
       // A slot never shows another validator's name while its own loads
       placeholderData: undefined,

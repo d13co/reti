@@ -100,7 +100,7 @@ describe('useQueuedQueries', () => {
 
   it('backs off the shared host limit when a query comes back rate limited', async () => {
     const queryClient = new QueryClient()
-    const controller = getBatchSizeController('nfd')
+    const controller = getBatchSizeController('algod')
     const before = controller.current
 
     const queries = [
@@ -113,7 +113,7 @@ describe('useQueuedQueries', () => {
       }),
     ]
 
-    renderHook(() => useQueuedQueries(queries, { host: 'nfd', batchInterval: BATCH_INTERVAL }), {
+    renderHook(() => useQueuedQueries(queries, { host: 'algod', batchInterval: BATCH_INTERVAL }), {
       wrapper: createWrapper(queryClient),
     })
 

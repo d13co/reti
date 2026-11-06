@@ -1,5 +1,3 @@
-import { AxiosError, isAxiosError } from 'axios'
-import { CacheRequestConfig } from 'axios-cache-interceptor'
 import {
   NfdGhostSDK,
   NfdNotDeployedError,
@@ -7,30 +5,19 @@ import {
   type NfdRecord,
 } from 'nfd-ghost-sdk'
 import { readAlgorand } from '@/api/reti'
-import {
-  Nfd,
-  NfdGetLookup200,
-  NfdGetLookupParams,
-  NfdGetNFDParams,
-  NfdSearchV2Params,
-  NfdV2SearchRecords,
-} from '@/interfaces/nfd'
-import axiosNfdApi from '@/lib/axiosNfdApi'
+import { Nfd } from '@/interfaces/nfd'
 import { getNfdRegistryAppIdFromViteEnvironment } from '@/utils/network/getNfdConfig'
 
 /**
- * NFDs are read two ways:
+ * NFDs are read on chain through `nfd-ghost-sdk`, straight from the NFD registry and NFD apps,
+ * on a read node that supports it (a dtalgorand node with read-only queries and foreign box
+ * reads). Those reads work at any round, so a time-travelling page shows the NFDs as they were,
+ * and lookups made in the same tick share one request.
  *
- * - On a read node that supports it (a dtalgorand node with read-only queries and foreign box
- *   reads), through `nfd-ghost-sdk`, straight from the NFD registry and NFD apps on chain. Those
- *   reads work at any round, so a time-travelling page shows the NFDs as they were, and lookups
- *   made in the same tick share one request.
- * - Everywhere else, through the NFD REST API, which only knows the present.
- *
- * Every function here takes the round to read at, and picks the way itself.
+ * Where the read node can't, or there is no registry to read (localnet), there are no NFDs:
+ * every read throws {@link NfdUnavailableError}, and pages show addresses instead.
  */
 
-/** Where an NFD read is made: the round (undefined for the latest) and the signal that stops it. */
 export interface NfdReadAt {
   round?: bigint
   signal?: AbortSignal
@@ -44,11 +31,27 @@ export class NfdNotFoundError extends Error {
   }
 }
 
-/** Whether a lookup failed because there is no such NFD: an SDK miss or a REST 404. */
+/** Whether a lookup failed because there is no such NFD. */
 export function isNfdNotFoundError(error: unknown): boolean {
-  return (
-    error instanceof NfdNotFoundError || (isAxiosError(error) && error.response?.status === 404)
-  )
+  return error instanceof NfdNotFoundError
+}
+
+/**
+ * NFDs can't be read: the read node doesn't support it, or there is no NFD registry. Also a
+ * lookup the node can't make, such as segments on a node without time travel (`cause`).
+ */
+export class NfdUnavailableError extends Error {
+  readonly cause?: unknown
+
+  constructor(message = "NFD lookups aren't available on this node", cause?: unknown) {
+    super(message)
+    this.name = 'NfdUnavailableError'
+    this.cause = cause
+  }
+}
+
+export function isNfdUnavailableError(error: unknown): boolean {
+  return error instanceof NfdUnavailableError
 }
 
 const NFD_REGISTRY_APP_ID = getNfdRegistryAppIdFromViteEnvironment()
@@ -74,70 +77,79 @@ function nfdSdk(): NfdGhostSDK | null {
 
 let support: Promise<boolean> | undefined
 
+/** How long after a failed support check it is asked again. */
+const SUPPORT_RECHECK_MS = 1000 * 60 // 1 minute
+
+let recheck: ReturnType<typeof setTimeout> | undefined
+let failedBefore = false
+const answeredAfterFailure = new Set<() => void>()
+
 /**
- * Whether NFDs are read on chain through the SDK, at any round. Asked once per session; a
- * failure to ask is retried by the next read, which goes through the REST API meanwhile.
+ * Calls `listener` each time the support check is answered after it failed, so reads that
+ * failed on it can be made again. Returns the unsubscribe.
  */
-export function nfdQueriesSupported(): Promise<boolean> {
+export function onNfdSupportAnsweredAfterFailure(listener: () => void): () => void {
+  answeredAfterFailure.add(listener)
+  return () => answeredAfterFailure.delete(listener)
+}
+
+/**
+ * Whether NFDs can be read: on chain through the SDK, at any round. Asked once per session.
+ * Rejects when the node couldn't be asked; the next call asks again, and so does a timer after
+ * a minute, whether or not anything reads NFDs meanwhile.
+ */
+export function askNfdQueriesSupported(): Promise<boolean> {
   const reader = nfdSdk()
   if (!reader) {
     return Promise.resolve(false)
   }
   if (!support) {
-    const asked = reader.supported().catch((error: unknown) => {
-      console.warn('Could not tell whether the read node can read NFDs', error)
-      if (support === asked) support = undefined
-      return false
-    })
+    const asked = reader.supported()
+    asked.then(
+      () => {
+        if (!failedBefore) return
+        failedBefore = false
+        answeredAfterFailure.forEach((listener) => listener())
+      },
+      (error: unknown) => {
+        console.warn('Could not tell whether the read node can read NFDs', error)
+        if (support === asked) support = undefined
+        failedBefore = true
+        recheck ??= setTimeout(() => {
+          recheck = undefined
+          askNfdQueriesSupported().catch(() => {})
+        }, SUPPORT_RECHECK_MS)
+      },
+    )
     support = asked
   }
   return support
 }
 
 // Asks before the first page needs the answer
-void nfdQueriesSupported()
-
-/** The SDK, if NFDs are read through it. */
-async function supportedSdk(): Promise<NfdGhostSDK | null> {
-  return (await nfdQueriesSupported()) ? nfdSdk() : null
-}
+askNfdQueriesSupported().catch(() => {})
 
 /**
- * Runs an SDK read, falling back to `rest` when the node turns out not to support it, or, for
- * a read at the latest round, when the read fails: REST answers the latest round just as well.
- * A pinned read that fails stays failed rather than showing today's NFDs as the past's.
+ * Runs `read` on the SDK, once the node is known to support it. Throws
+ * {@link NfdUnavailableError} where it doesn't or can't make the lookup, and the support check's
+ * error when the node couldn't be asked.
  */
-async function withRestFallback<T>(
-  at: NfdReadAt,
-  read: (reader: NfdGhostSDK) => Promise<T>,
-  rest: () => Promise<T>,
-): Promise<T> {
-  const reader = await supportedSdk()
-  if (!reader) {
-    return rest()
+async function withReader<T>(read: (sdk: NfdGhostSDK) => Promise<T>): Promise<T> {
+  const sdk = nfdSdk()
+  if (!sdk || !(await askNfdQueriesSupported())) {
+    throw new NfdUnavailableError()
   }
   try {
-    return await read(reader)
+    return await read(sdk)
   } catch (error) {
-    if (
-      error instanceof NfdNotFoundError ||
-      error instanceof NfdNotDeployedError ||
-      at.signal?.aborted
-    ) {
-      throw error
-    }
-    if (error instanceof NfdQueryUnavailableError || at.round === undefined) {
-      console.warn('NFD read through the read node failed, using the NFD API', error)
-      return rest()
+    if (error instanceof NfdQueryUnavailableError) {
+      throw new NfdUnavailableError("This NFD lookup isn't available on this node", error)
     }
     throw error
   }
 }
 
-/**
- * An SDK record in the shape the NFD API gives, which is what the rest of the app reads. Only
- * the fields the SDK reads are set.
- */
+/** An SDK record in the app's `Nfd` shape (see `@/interfaces/nfd`). */
 export function nfdFromRecord(record: NfdRecord): Nfd {
   return {
     name: record.name,
@@ -163,42 +175,17 @@ export function nfdFromRecord(record: NfdRecord): Nfd {
 /** An NFD by app id or name, at `at.round`. Throws `NfdNotFoundError` if there is none. */
 export async function fetchNfd(
   nameOrID: string | bigint | number,
-  params?: NfdGetNFDParams,
-  options?: CacheRequestConfig,
   at: NfdReadAt = {},
 ): Promise<Nfd> {
   const key = nameOrID.toString()
-  return withRestFallback(
-    at,
-    async (reader) => {
-      const opts = { round: at.round, signal: at.signal }
-      const record = /^\d+$/.test(key)
-        ? await reader.getRecord(BigInt(key), opts)
-        : await reader.resolveName(key, opts)
-      if (!record) {
-        throw new NfdNotFoundError()
-      }
-      return nfdFromRecord(record)
-    },
-    () => fetchNfdRest(key, params, options),
+  const opts = { round: at.round, signal: at.signal }
+  const record = await withReader((sdk) =>
+    /^\d+$/.test(key) ? sdk.getRecord(BigInt(key), opts) : sdk.resolveName(key, opts),
   )
-}
-
-async function fetchNfdRest(
-  nameOrID: string,
-  params?: NfdGetNFDParams,
-  options?: CacheRequestConfig,
-): Promise<Nfd> {
-  const { data: nfd } = await axiosNfdApi.get<Nfd>(`/nfd/${nameOrID}`, {
-    ...options,
-    params: { ...params, ...options?.params },
-  })
-
-  if (!nfd || !nfd.name) {
+  if (!record) {
     throw new NfdNotFoundError()
   }
-
-  return nfd
+  return nfdFromRecord(record)
 }
 
 /**
@@ -207,101 +194,42 @@ async function fetchNfdRest(
  */
 export async function fetchNfdReverseLookup(
   address: string,
-  params?: Omit<NfdGetLookupParams, 'address'>,
-  options?: CacheRequestConfig,
   at: NfdReadAt = {},
 ): Promise<Nfd | null> {
-  try {
-    return await withRestFallback(
-      at,
-      async (reader) => {
-        const nfds = await reader.reverseLookup([address], {
-          round: at.round,
-          signal: at.signal,
-        })
-        const primary = nfds.get(address)?.[0]
-        return primary ? nfdFromRecord(primary) : null
-      },
-      () => fetchNfdReverseLookupRest(address, params, options),
-    )
-  } catch (error) {
-    if (error instanceof NfdNotDeployedError) {
-      return null
+  return withReader(async (sdk) => {
+    try {
+      const nfds = await sdk.reverseLookup([address], { round: at.round, signal: at.signal })
+      const primary = nfds.get(address)?.[0]
+      return primary ? nfdFromRecord(primary) : null
+    } catch (error) {
+      if (error instanceof NfdNotDeployedError) {
+        return null
+      }
+      throw error
     }
-    throw error
-  }
-}
-
-async function fetchNfdReverseLookupRest(
-  address: string,
-  params?: Omit<NfdGetLookupParams, 'address'>,
-  options?: CacheRequestConfig,
-): Promise<Nfd | null> {
-  try {
-    const { data } = await axiosNfdApi.get<NfdGetLookup200>(`/nfd/lookup`, {
-      ...options,
-      params: { address: [address], ...params, ...options?.params },
-    })
-
-    const nfd = data[address]
-
-    return nfd || null
-  } catch (error) {
-    if (error instanceof AxiosError && error.response?.status === 404) {
-      return null
-    }
-    throw error
-  }
+  })
 }
 
 /**
- * The verified addresses of the NFD `appId` that creator-NFD gating checks, at the latest
- * round. On chain that is just `v.caAlgo.0.as`, as the contract reads it; the API gives them all.
+ * The verified address of the NFD `appId` that creator-NFD gating checks, at the latest round:
+ * `v.caAlgo.0.as`, as the contract reads it.
  */
 export async function fetchNfdGatingAddresses(appId: bigint): Promise<string[]> {
-  return withRestFallback(
-    {},
-    async (reader) => {
-      const record = await reader.getRecord(appId, { fields: ['caAlgo'] })
-      if (!record) {
-        throw new NfdNotFoundError()
-      }
-      return record.caAlgo0
-    },
-    async () => (await fetchNfdRest(appId.toString(), { view: 'tiny' })).caAlgo || [],
-  )
+  const record = await withReader((sdk) => sdk.getRecord(appId, { fields: ['caAlgo'] }))
+  if (!record) {
+    throw new NfdNotFoundError()
+  }
+  return record.caAlgo0
 }
 
 /**
  * The app id of a segment of `parentAppId` that `address` can gate with at the latest round,
- * or 0n if none. On chain that is any segment it owns or is linked to (`v.caAlgo.0.as`), as the
- * contract accepts; the API can only find the ones it owns.
+ * or 0n if none: any segment it owns or is linked to (`v.caAlgo.0.as`), as the contract accepts.
+ * Needs a node with time travel.
  */
 export async function fetchNfdGatingSegment(address: string, parentAppId: bigint): Promise<bigint> {
-  return withRestFallback(
-    {},
-    async (reader) => {
-      const segments = await reader.getSegmentsFor(address, parentAppId, { fields: ['caAlgo'] })
-      return segments[0]?.appId ?? 0n
-    },
-    async () => {
-      const result = await fetchNfdSearch(
-        { parentAppID: parentAppId, state: ['owned'], owner: address, view: 'brief', limit: 1 },
-        { cache: false },
-      )
-      return result.nfds.length > 0 ? BigInt(result.nfds[0].appID!) : 0n
-    },
+  const segments = await withReader((sdk) =>
+    sdk.getSegmentsFor(address, parentAppId, { fields: ['caAlgo'] }),
   )
-}
-
-export async function fetchNfdSearch(
-  params: NfdSearchV2Params,
-  options?: CacheRequestConfig,
-): Promise<NfdV2SearchRecords> {
-  const { data: result } = await axiosNfdApi.get<NfdV2SearchRecords>(`/nfd/v2/search`, {
-    ...options,
-    params: { ...params, ...options?.params },
-  })
-
-  return result
+  return segments[0]?.appId ?? 0n
 }

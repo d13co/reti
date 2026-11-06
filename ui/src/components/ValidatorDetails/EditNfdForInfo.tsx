@@ -1,7 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
-import { isAxiosError } from 'axios'
 import { ArrowUpRight, Check, RotateCcw } from 'lucide-react'
 import * as React from 'react'
 import { useForm } from 'react-hook-form'
@@ -9,7 +8,7 @@ import { toast } from 'sonner'
 import { useDebouncedCallback } from 'use-debounce'
 import { z } from 'zod'
 import { changeValidatorNfd, fetchValidator } from '@/api/contracts'
-import { fetchNfd, isNfdNotFoundError } from '@/api/nfd'
+import { fetchNfd, isNfdNotFoundError, isNfdUnavailableError } from '@/api/nfd'
 import { InfoPopover } from '@/components/InfoPopover'
 import { Button } from '@/components/ui/button'
 import { DialogFooter } from '@/components/ui/dialog'
@@ -32,6 +31,8 @@ import { cn } from '@/utils/ui'
 import { validatorSchemas } from '@/utils/validation'
 
 const nfdAppUrl = getNfdAppFromViteEnvironment()
+
+const ERROR_NOT_OWNED = 'NFD not owned by active address'
 
 interface EditNfdForInfoProps {
   validator: Validator
@@ -81,10 +82,10 @@ export function EditNfdForInfo({ validator }: EditNfdForInfoProps) {
 
   const fetchNfdAppId = async (value: string) => {
     try {
-      const nfd = await fetchNfd(value, { view: 'brief' })
+      const nfd = await fetchNfd(value)
 
       if (nfd.owner !== activeAddress) {
-        throw new Error('NFD not owned by active address')
+        throw new Error(ERROR_NOT_OWNED)
       }
 
       // If we have an app id, clear error if it exists
@@ -95,13 +96,11 @@ export function EditNfdForInfo({ validator }: EditNfdForInfoProps) {
       let message: string
       if (isNfdNotFoundError(error)) {
         message = 'NFD app ID not found'
-      } else if (isAxiosError(error) && error.response) {
+      } else if (isNfdUnavailableError(error) || error?.message === ERROR_NOT_OWNED) {
+        message = error.message
+      } else {
         console.error(error)
         message = 'Failed to fetch NFD'
-      } else {
-        // Handle non-HTTP errors
-        console.error(error)
-        message = error.message
       }
       form.setError('nfdForInfo', { type: 'manual', message })
     } finally {

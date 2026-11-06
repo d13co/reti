@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ProgressBar } from '@tremor/react'
 import { Copy } from 'lucide-react'
+import { isNfdUnavailableError } from '@/api/nfd'
 import { nfdLookupQueryOptions, validatorPoolStatesQueryOptions } from '@/api/queries'
 import { AlgoDisplayAmount } from '@/components/AlgoDisplayAmount'
 import { NfdDisplay, NfdLoadingDisplay } from '@/components/NfdDisplay'
@@ -34,14 +35,7 @@ export function StakingPoolInfo({
   isOwner,
 }: StakingPoolInfoProps) {
   const { round } = useAtRound()
-  const poolNfdQuery = useQuery(
-    nfdLookupQueryOptions(
-      poolInfo?.poolAddress || null,
-      { view: 'thumbnail' },
-      { cache: false },
-      round,
-    ),
-  )
+  const poolNfdQuery = useQuery(nfdLookupQueryOptions(poolInfo?.poolAddress || null, round))
 
   // Not stored in the validator box. Comes from the same read of this validator's pools' global
   // state that its metrics use (`useValidator`), so getting here is normally a cache hit.
@@ -69,8 +63,11 @@ export function StakingPoolInfo({
     (Number(selectedPoolCurrentStake) / Number(maxStakePerPool)) * 100,
   )
 
+  // No NFDs on this node: no pool NFD to show, or to link
+  const nfdUnavailable = isNfdUnavailableError(poolNfdQuery.error)
+
   const renderSeparator = () => {
-    if (!poolInfo) {
+    if (!poolInfo || nfdUnavailable) {
       return null
     }
 
@@ -83,7 +80,7 @@ export function StakingPoolInfo({
   }
 
   const renderPoolNfd = () => {
-    if (!poolInfo) {
+    if (!poolInfo || nfdUnavailable) {
       return null
     }
 

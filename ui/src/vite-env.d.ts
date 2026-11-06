@@ -22,7 +22,6 @@ interface ImportMetaEnv {
   readonly VITE_KMD_PASSWORD: string
   readonly VITE_KMD_WALLET: string
 
-  readonly VITE_NFD_API_URL: string
   readonly VITE_NFD_APP_URL: string
   readonly VITE_NFD_REGISTRY_APP_ID?: string
   /** Log NFD queries in builds too (`true`); dev always logs them */

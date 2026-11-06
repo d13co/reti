@@ -101,19 +101,16 @@ export function useValidators(): {
     [extrasReady, gatingAssetIds, round, queryClient],
   )
 
-  // Read on chain through the SDK, every validator's NFD shares one request, so they all go at
-  // once; through the rate limited REST API they are metered. Waits for the answer to that.
+  // Once the node is known to read NFDs, or not (where it can't, each read fails at once): the
+  // NFD column shows loading until then
   const nfdSupportQuery = useQuery(nfdSupportQueryOptions)
   const nfdQueryOptionsList = React.useMemo(
-    () =>
-      nfdSupportQuery.isPending
-        ? []
-        : nfdAppIds.map((id) => nfdQueryOptions(id, { view: 'full' }, {}, round)),
+    () => (nfdSupportQuery.isPending ? [] : nfdAppIds.map((id) => nfdQueryOptions(id, round))),
     [nfdAppIds, nfdSupportQuery.isPending, round],
   )
 
-  // Unmetered, so they fire together: the SDK reads asset calls made within its batch window
-  // (10 ms) at the same round in one request
+  // Unmetered, so they fire together: the SDKs read calls made within their batch window (10 ms)
+  // at the same round in one request
   const rewardTokenQueries = useQueuedQueries(rewardTokenQueryOptions, {
     host: 'algod',
     metered: false,
@@ -123,8 +120,8 @@ export function useValidators(): {
     metered: false,
   })
   const nfdQueries = useQueuedQueries(nfdQueryOptionsList, {
-    host: 'nfd',
-    metered: nfdSupportQuery.data !== true,
+    host: 'algod',
+    metered: false,
   })
 
   // Every pool's lastPayout in one request, shared by all the metrics queries below. After the

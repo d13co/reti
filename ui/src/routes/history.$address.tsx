@@ -62,7 +62,7 @@ function StakingHistory() {
   const valid = algosdk.isValidAddress(address)
   const { round } = useAtRound()
   const nfdQuery = useQuery({
-    ...nfdLookupQueryOptions(address, undefined, undefined, round),
+    ...nfdLookupQueryOptions(address, round),
     enabled: valid,
   })
   const description = nfdQuery.data?.name ?? address

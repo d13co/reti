@@ -114,14 +114,4 @@ describe('AdaptiveBatchSize', () => {
     window.localStorage.setItem(ALGOD_STORAGE_KEY, '0')
     expect(new AdaptiveBatchSize('algod').current).toBe(4)
   })
-
-  it('tracks hosts independently', () => {
-    const algod = new AdaptiveBatchSize('algod')
-    const nfd = new AdaptiveBatchSize('nfd')
-
-    nfd.recordThrottled()
-
-    expect(nfd.current).toBe(3)
-    expect(algod.current).toBe(4)
-  })
 })

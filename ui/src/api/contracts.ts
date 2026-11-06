@@ -285,9 +285,13 @@ export async function fetchValidator(validatorId: number): Promise<Validator> {
 
   if (validator.config.nfdForInfo > 0) {
     enrichmentPromises.push(
-      fetchNfd(validator.config.nfdForInfo, { view: 'full' }).then((nfd) => {
-        validator.nfd = nfd
-      }),
+      // Without its NFD rather than not at all: NFDs can't be read on every node
+      fetchNfd(validator.config.nfdForInfo).then(
+        (nfd) => {
+          validator.nfd = nfd
+        },
+        (error: unknown) => console.warn('Could not read the validator NFD', error),
+      ),
     )
   }
 

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import * as React from 'react'
+import { isNfdUnavailableError } from '@/api/nfd'
 import { nfdQueryOptions, ipfsUrlQueryOptions } from '@/api/queries'
 import { Nfd } from '@/interfaces/nfd'
 import { Loading } from '@/components/Loading'
@@ -33,8 +34,10 @@ const NfdDisplayBase = React.memo(
     tooltip = false,
     avatarOnly = false,
   }: NfdDisplayBaseProps) {
-    const [imageError, setImageError] = React.useState(false)
     const originalUrl = React.useMemo(() => getNfdAvatarUrl(nfd), [nfd])
+    // Which avatar failed to load: another NFD, or this one at another round, gets its own try
+    const [failedUrl, setFailedUrl] = React.useState<string>()
+    const imageError = failedUrl === originalUrl
     const isIpfsUrl = originalUrl.startsWith('ipfs://')
 
     const { data: resolvedIpfsUrl } = useQuery(ipfsUrlQueryOptions(originalUrl))
@@ -55,7 +58,7 @@ const NfdDisplayBase = React.memo(
           src={avatarUrl}
           className="absolute inset-0 rounded-full object-cover"
           alt={nfd.name}
-          onError={() => setImageError(true)}
+          onError={() => setFailedUrl(originalUrl)}
         />
       </div>
     )
@@ -90,10 +93,13 @@ const NfdDisplayBase = React.memo(
 
     return wrappedContent
   },
+  // The query keeps an unchanged NFD's object, so a new one means something shown may differ: its
+  // avatar or state at another round
   (prevProps, nextProps) => {
     return (
+      prevProps.nfd === nextProps.nfd &&
+      prevProps.className === nextProps.className &&
       prevProps.avatarClassName === nextProps.avatarClassName &&
-      prevProps.nfd.name === nextProps.nfd.name &&
       prevProps.link === nextProps.link &&
       prevProps.truncate === nextProps.truncate &&
       prevProps.tooltip === nextProps.tooltip &&
@@ -168,11 +174,7 @@ const NfdDisplay = React.memo(function NfdDisplay({
   ...props
 }: NfdDisplayProps) {
   const { round } = useAtRound()
-  const {
-    data: nfdData,
-    isLoading,
-    error,
-  } = useQuery(nfdQueryOptions(nameOrId || '', undefined, undefined, round))
+  const { data: nfdData, isLoading, error } = useQuery(nfdQueryOptions(nameOrId || '', round))
 
   if (nfdProp) {
     return <NfdDisplayBase nfd={nfdProp} {...props} />
@@ -187,6 +189,15 @@ const NfdDisplay = React.memo(function NfdDisplay({
         truncate={props.truncate}
         avatarOnly={props.avatarOnly}
       />
+    )
+  }
+
+  // No NFDs on this node: the address, or the NFD's app id, stands in
+  if (isNfdUnavailableError(error)) {
+    return (
+      <div className={cn('font-mono text-sm', { truncate: props.truncate }, props.className)}>
+        {address ? ellipseAddressJsx(address) : nameOrId?.toString()}
+      </div>
     )
   }
 

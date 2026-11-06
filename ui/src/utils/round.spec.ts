@@ -42,7 +42,7 @@ describe('roundKey / isPinnedQueryKey', () => {
 
   it("doesn't mistake a trailing numeric id for a round", () => {
     expect(isPinnedQueryKey(['validator-metrics', '1'])).toBe(false)
-    expect(isPinnedQueryKey(['nfd', '12345', { view: 'full' }])).toBe(false)
+    expect(isPinnedQueryKey(['asset', 12345])).toBe(false)
   })
 })
 

@@ -90,11 +90,11 @@ export function TimeTravelBanner() {
                 <span className="hidden sm:inline"> · </span>
                 {/* Each sentence stays whole, so a narrow phone breaks between them */}
                 <span className="whitespace-nowrap">Read only.</span>
-                {/* Only where NFDs can't be read as of the round (see `@/api/nfd`) */}
-                {nfdSupportQuery.data === false && (
+                {/* Only where the read node can't read NFDs, or couldn't be asked (see `@/api/nfd`) */}
+                {(nfdSupportQuery.data === false || nfdSupportQuery.isError) && (
                   <>
                     {' '}
-                    <span className="whitespace-nowrap">NFDs are current.</span>
+                    <span className="whitespace-nowrap">NFDs unavailable.</span>
                   </>
                 )}
               </span>

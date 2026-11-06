@@ -12,6 +12,8 @@ import { SnackbarProvider } from 'notistack'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { HelmetProvider } from 'react-helmet-async'
+import { onNfdSupportAnsweredAfterFailure } from '@/api/nfd'
+import { NFD_QUERY_ROOTS } from '@/api/queries'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import { SharedTooltipProvider } from '@/components/Tooltip'
 import { Toaster } from '@/components/ui/sonner'
@@ -97,6 +99,16 @@ notifyManager.setScheduler(createCoalescingScheduler())
 // Tanstack Query client instance
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: retryRead } },
+})
+
+// NFD reads that failed while the node couldn't be asked whether it reads NFDs are made again
+// once it answers (see `@/api/nfd`)
+onNfdSupportAnsweredAfterFailure(() => {
+  void queryClient.invalidateQueries({ queryKey: ['nfd-support'], exact: true })
+  void queryClient.invalidateQueries({
+    predicate: (query) =>
+      NFD_QUERY_ROOTS.includes(String(query.queryKey[0])) && query.state.status === 'error',
+  })
 })
 
 // Tanstack Router instance

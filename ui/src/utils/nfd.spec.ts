@@ -67,19 +67,16 @@ describe('getNfdAvatarUrl', () => {
     const curatedNfd: Nfd = {
       ...mockNfd,
       category: 'curated',
-      properties: { verified: {}, userDefined: {} },
+      properties: { userDefined: {} },
     }
     expect(getNfdAvatarUrl(curatedNfd)).toBe(`${mockBaseUrl}/img/nfd-image-placeholder_gold.jpg`)
   })
 
-  it('should return a gray placeholder for available, forSale, or reserved NFDs', () => {
+  it('should return a gray placeholder for available or forSale NFDs', () => {
     expect(getNfdAvatarUrl({ ...mockNfd, state: 'available' })).toBe(
       `${mockBaseUrl}/img/nfd-image-placeholder_gray.jpg`,
     )
     expect(getNfdAvatarUrl({ ...mockNfd, state: 'forSale' })).toBe(
-      `${mockBaseUrl}/img/nfd-image-placeholder_gray.jpg`,
-    )
-    expect(getNfdAvatarUrl({ ...mockNfd, state: 'reserved' })).toBe(
       `${mockBaseUrl}/img/nfd-image-placeholder_gray.jpg`,
     )
   })
@@ -89,7 +86,7 @@ describe('getNfdAvatarUrl', () => {
       getNfdAvatarUrl({
         ...mockNfd,
         state: 'owned',
-        properties: { verified: {}, userDefined: {} },
+        properties: { userDefined: {} },
       }),
     ).toBe(`${mockBaseUrl}/img/nfd-image-placeholder.jpg`)
   })
@@ -97,7 +94,7 @@ describe('getNfdAvatarUrl', () => {
   it('should return the provided avatar URL if it exists', () => {
     const nfdWithAvatar: Nfd = {
       ...mockNfd,
-      properties: { verified: {}, userDefined: { avatar: 'https://mock-avatar.com/avatar.png' } },
+      properties: { userDefined: { avatar: 'https://mock-avatar.com/avatar.png' } },
     }
     expect(getNfdAvatarUrl(nfdWithAvatar)).toBe('https://mock-avatar.com/avatar.png')
   })

@@ -37,7 +37,15 @@ export function httpStatusOf(error: unknown): number | undefined {
   return undefined
 }
 
-const FINAL_ERROR_NAMES = new Set(['DTUnsupportedError', 'DTNotAvailableError', 'AbortError'])
+const FINAL_ERROR_NAMES = new Set([
+  'DTUnsupportedError',
+  'DTNotAvailableError',
+  'AbortError',
+  // `@/api/nfd` and `nfd-ghost-sdk`: no such NFD, or a node that can't read NFDs
+  'NfdNotFoundError',
+  'NfdUnavailableError',
+  'NfdQueryUnavailableError',
+])
 
 function isFinalHere(error: unknown): boolean {
   const status = statusOf(error)
@@ -75,7 +83,11 @@ export function readFailureMessage(error: unknown): string | undefined {
     if (isHistoryUnavailable(e)) return "The node can't serve this history right now."
     if (isTimeLimitExceeded(e)) return 'This took longer than the node allows.'
     const name = (e as { name?: unknown } | null)?.name
-    if (name === 'DTUnsupportedError' || name === 'DTNotAvailableError') {
+    if (
+      name === 'DTUnsupportedError' ||
+      name === 'DTNotAvailableError' ||
+      name === 'NfdUnavailableError'
+    ) {
       return "The read node doesn't support this."
     }
   }

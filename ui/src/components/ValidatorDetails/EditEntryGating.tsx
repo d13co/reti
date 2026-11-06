@@ -2,7 +2,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useWallet } from '@txnlab/use-wallet-react'
 import algosdk from 'algosdk'
-import { isAxiosError } from 'axios'
 import { ArrowUpRight, Check, RotateCcw, X } from 'lucide-react'
 import * as React from 'react'
 import { useFieldArray, useForm } from 'react-hook-form'
@@ -10,7 +9,7 @@ import { toast } from 'sonner'
 import { useDebouncedCallback } from 'use-debounce'
 import { z } from 'zod'
 import { changeValidatorRewardInfo, fetchValidator } from '@/api/contracts'
-import { fetchNfd, isNfdNotFoundError } from '@/api/nfd'
+import { fetchNfd, isNfdNotFoundError, isNfdUnavailableError } from '@/api/nfd'
 import { nfdQueryOptions } from '@/api/queries'
 import { AssetLookup } from '@/components/AssetLookup'
 import { InfoPopover } from '@/components/InfoPopover'
@@ -201,7 +200,7 @@ export function EditEntryGating({ validator }: EditEntryGatingProps) {
     setFetching: React.Dispatch<React.SetStateAction<boolean>>,
   ) => {
     try {
-      const nfd = await fetchNfd(value, { view: 'brief' })
+      const nfd = await fetchNfd(value)
 
       // If we have an app id, clear error if it exists
       form.clearErrors(field)
@@ -211,13 +210,11 @@ export function EditEntryGating({ validator }: EditEntryGatingProps) {
       let message: string
       if (isNfdNotFoundError(error)) {
         message = 'NFD app ID not found'
-      } else if (isAxiosError(error) && error.response) {
+      } else if (isNfdUnavailableError(error)) {
+        message = error.message
+      } else {
         console.error(error)
         message = 'Failed to fetch NFD'
-      } else {
-        // Handle non-HTTP errors
-        console.error(error)
-        message = error.message
       }
       form.setError(field, { type: 'manual', message })
     } finally {

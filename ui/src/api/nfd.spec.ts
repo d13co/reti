@@ -1,6 +1,6 @@
 /**
- * The NFD read layer against a fake `NfdGhostSDK` and a fake NFD API: which way each read goes,
- * and how SDK records reach the app. Each case loads a fresh copy of the module, since it asks
+ * The NFD read layer against a fake `NfdGhostSDK`: how each read reaches the SDK, how SDK
+ * records reach the app, and what happens where the node can't read NFDs. Each case loads a fresh copy of the module, since it asks
  * the SDK about support once per session.
  */
 
@@ -12,7 +12,6 @@ const fake = vi.hoisted(() => ({
   resolveName: vi.fn(),
   reverseLookup: vi.fn(),
   getSegmentsFor: vi.fn(),
-  restGet: vi.fn(),
 }))
 
 vi.mock('nfd-ghost-sdk', async (importOriginal) => {
@@ -35,8 +34,6 @@ vi.mock('@/utils/network/getNfdConfig', () => ({
   getNfdRegistryAppIdFromViteEnvironment: () => 760937186n,
 }))
 
-vi.mock('@/lib/axiosNfdApi', () => ({ default: { get: fake.restGet } }))
-
 const ADDRESS = 'STAKERSTAKERSTAKERSTAKERSTAKERSTAKERSTAKERSTAKERSTAKERST'
 
 const RECORD: NfdRecord = {
@@ -57,8 +54,6 @@ const RECORD: NfdRecord = {
   round: 50_000_000n,
 }
 
-const REST_NFD = { name: 'rest.algo', appID: 1, caAlgo: ['REST'] }
-
 /** A fresh copy of the module: it asks about support as it loads, so set `supported` first. */
 async function load() {
   vi.resetModules()
@@ -69,10 +64,9 @@ describe('NFD reads', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     fake.supported.mockResolvedValue(true)
-    fake.restGet.mockResolvedValue({ data: REST_NFD })
   })
 
-  it('maps an SDK record to the API shape', async () => {
+  it("maps an SDK record to the app's Nfd shape", async () => {
     const { nfdFromRecord } = await load()
     expect(nfdFromRecord(RECORD)).toEqual({
       name: 'king.dragonfi.algo',
@@ -95,9 +89,9 @@ describe('NFD reads', () => {
     fake.getRecord.mockResolvedValue(RECORD)
     fake.resolveName.mockResolvedValue(RECORD)
 
-    await expect(
-      fetchNfd(1013764620n, undefined, undefined, { round: 50_000_000n }),
-    ).resolves.toMatchObject({ name: 'king.dragonfi.algo' })
+    await expect(fetchNfd(1013764620n, { round: 50_000_000n })).resolves.toMatchObject({
+      name: 'king.dragonfi.algo',
+    })
     expect(fake.getRecord).toHaveBeenCalledWith(1013764620n, {
       round: 50_000_000n,
       signal: undefined,
@@ -108,7 +102,6 @@ describe('NFD reads', () => {
       round: undefined,
       signal: undefined,
     })
-    expect(fake.restGet).not.toHaveBeenCalled()
   })
 
   it('says an NFD the SDK has no record of is not found', async () => {
@@ -117,27 +110,71 @@ describe('NFD reads', () => {
 
     const error = await fetchNfd(5n).catch((error: unknown) => error)
     expect(isNfdNotFoundError(error)).toBe(true)
-    expect(fake.restGet).not.toHaveBeenCalled()
   })
 
-  it('uses the API where the node does not support NFD reads', async () => {
+  it('fails every read where the node does not support NFD reads', async () => {
     fake.supported.mockResolvedValue(false)
-    const { fetchNfd } = await load()
+    const { fetchNfd, fetchNfdReverseLookup, fetchNfdGatingSegment, isNfdUnavailableError } =
+      await load()
 
-    await expect(fetchNfd(1n, { view: 'brief' })).resolves.toEqual(REST_NFD)
+    for (const read of [
+      fetchNfd(1n),
+      fetchNfdReverseLookup(ADDRESS),
+      fetchNfdGatingSegment(ADDRESS, 7n),
+    ]) {
+      expect(isNfdUnavailableError(await read.catch((error: unknown) => error))).toBe(true)
+    }
     expect(fake.getRecord).not.toHaveBeenCalled()
-    expect(fake.restGet).toHaveBeenCalledWith('/nfd/1', { params: { view: 'brief' } })
+    expect(fake.reverseLookup).not.toHaveBeenCalled()
   })
 
-  it('falls back to the API when a read at the latest round fails, not at a pinned round', async () => {
-    const { fetchNfd } = await load()
+  it('fails a read when the node could not be asked, and asks again on the next', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
+    fake.supported.mockRejectedValue(new Error('node down'))
+    const { fetchNfd } = await load()
+    fake.getRecord.mockResolvedValue(RECORD)
+
+    await expect(fetchNfd(1n)).rejects.toThrow('node down')
+    fake.supported.mockResolvedValue(true)
+    await expect(fetchNfd(1n)).resolves.toMatchObject({ name: 'king.dragonfi.algo' })
+  })
+
+  it('asks again a minute after a failed check, and says when it answers', async () => {
+    vi.useFakeTimers()
+    try {
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+      fake.supported.mockRejectedValue(new Error('node down'))
+      const { onNfdSupportAnsweredAfterFailure } = await load()
+      const answered = vi.fn()
+      onNfdSupportAnsweredAfterFailure(answered)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(fake.supported).toHaveBeenCalledTimes(1)
+
+      fake.supported.mockResolvedValue(true)
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(fake.supported).toHaveBeenCalledTimes(2)
+      expect(answered).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('fails a lookup the node cannot make as unavailable', async () => {
+    const { fetchNfdGatingSegment, isNfdUnavailableError } = await load()
+    const { NfdQueryUnavailableError } = await import('nfd-ghost-sdk')
+    fake.getSegmentsFor.mockRejectedValue(new NfdQueryUnavailableError('no time travel'))
+
+    const error = await fetchNfdGatingSegment(ADDRESS, 7n).catch((error: unknown) => error)
+    expect(isNfdUnavailableError(error)).toBe(true)
+    expect((error as { cause?: unknown }).cause).toBeInstanceOf(NfdQueryUnavailableError)
+  })
+
+  it('keeps a failed SDK read failed', async () => {
+    const { fetchNfd } = await load()
     fake.getRecord.mockRejectedValue(new Error('node down'))
 
-    await expect(fetchNfd(1n)).resolves.toEqual(REST_NFD)
-    await expect(fetchNfd(1n, undefined, undefined, { round: 40_000_000n })).rejects.toThrow(
-      'node down',
-    )
+    await expect(fetchNfd(1n)).rejects.toThrow('node down')
+    await expect(fetchNfd(1n, { round: 40_000_000n })).rejects.toThrow('node down')
   })
 
   it('reverse looks up the primary NFD at the round, and none before the registry', async () => {
@@ -145,9 +182,9 @@ describe('NFD reads', () => {
     const { NfdNotDeployedError } = await import('nfd-ghost-sdk')
     fake.reverseLookup.mockResolvedValue(new Map([[ADDRESS, [RECORD, { ...RECORD, name: 'b' }]]]))
 
-    await expect(
-      fetchNfdReverseLookup(ADDRESS, undefined, undefined, { round: 50_000_000n }),
-    ).resolves.toMatchObject({ name: 'king.dragonfi.algo' })
+    await expect(fetchNfdReverseLookup(ADDRESS, { round: 50_000_000n })).resolves.toMatchObject({
+      name: 'king.dragonfi.algo',
+    })
     expect(fake.reverseLookup).toHaveBeenCalledWith([ADDRESS], {
       round: 50_000_000n,
       signal: undefined,
@@ -157,9 +194,7 @@ describe('NFD reads', () => {
     await expect(fetchNfdReverseLookup(ADDRESS)).resolves.toBeNull()
 
     fake.reverseLookup.mockRejectedValue(new NfdNotDeployedError(1n, 21_341_747n))
-    await expect(
-      fetchNfdReverseLookup(ADDRESS, undefined, undefined, { round: 1n }),
-    ).resolves.toBeNull()
+    await expect(fetchNfdReverseLookup(ADDRESS, { round: 1n })).resolves.toBeNull()
   })
 
   it('gates on the segments and verified addresses the contract checks', async () => {
@@ -174,19 +209,5 @@ describe('NFD reads', () => {
 
     fake.getSegmentsFor.mockResolvedValue([])
     await expect(fetchNfdGatingSegment(ADDRESS, 1013764500n)).resolves.toBe(0n)
-  })
-
-  it('gates through the API search where the node does not support NFD reads', async () => {
-    fake.supported.mockResolvedValue(false)
-    const { fetchNfdGatingSegment } = await load()
-    fake.restGet.mockResolvedValue({ data: { nfds: [{ appID: 42 }] } })
-
-    await expect(fetchNfdGatingSegment(ADDRESS, 7n)).resolves.toBe(42n)
-    expect(fake.restGet).toHaveBeenCalledWith(
-      '/nfd/v2/search',
-      expect.objectContaining({
-        params: expect.objectContaining({ parentAppID: 7n, owner: ADDRESS }),
-      }),
-    )
   })
 })
