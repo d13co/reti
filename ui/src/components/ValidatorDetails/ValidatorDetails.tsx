@@ -241,13 +241,7 @@ export function ValidatorDetails({
           <YourHistory validator={validator} />
         </>
       }
-      history={
-        <TotalsHistory
-          target={{ validator: validator.id }}
-          title="History"
-          className="lg:col-span-2"
-        />
-      }
+      history={<TotalsHistory target={{ validator: validator.id }} title="History" stacked />}
       timeline={<ValidatorTimeline validator={validator} />}
     >
       {canAddPool && (
@@ -294,15 +288,20 @@ function ValidatorDetailsLayout({
   return (
     <div className="py-10 space-y-4">
       {highlights}
+      {/*
+       * Two columns on large screens. Below that the columns dissolve (`contents`) into one, where
+       * `order` moves History down after Staking Details, just above Changes. History and Changes
+       * only render when the read node can serve past rounds; their empty boxes are hidden.
+       */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <div>{details}</div>
-        <div className="space-y-4 lg:col-span-2">{staking}</div>
-      </div>
-
-      {/* History: only rendered when the read node can serve past rounds */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        {history}
-        {timeline}
+        <div className="contents lg:block lg:space-y-4">
+          <div>{details}</div>
+          <div className="order-1 empty:hidden lg:order-none">{history}</div>
+        </div>
+        <div className="contents lg:col-span-2 lg:block lg:space-y-4">
+          <div className="space-y-4">{staking}</div>
+          <div className="order-2 empty:hidden lg:order-none">{timeline}</div>
+        </div>
       </div>
       {children}
     </div>
@@ -343,7 +342,7 @@ export function ValidatorDetailsSkeleton() {
       highlights={<Highlights />}
       details={<DetailsSkeleton />}
       staking={<StakingDetailsSkeleton />}
-      history={<TotalsHistorySkeleton title="History" className="lg:col-span-2" />}
+      history={<TotalsHistorySkeleton title="History" stacked />}
       timeline={<ValidatorTimelineSkeleton />}
     />
   )

@@ -30,6 +30,8 @@ interface TotalsHistoryProps {
   target: TotalsTarget
   title: string
   className?: string
+  /** One chart per row on large screens, where the card sits in a narrow column */
+  stacked?: boolean
 }
 
 type Metric = 'staked' | 'stakers' | 'validators'
@@ -147,8 +149,9 @@ const keepSameTarget =
 const metricsFor = (target: TotalsTarget) =>
   METRICS.filter((metric) => metric.key !== 'validators' || 'registry' in target)
 
-const CHARTS_GRID = (count: number) =>
-  cn('grid gap-6', count === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2')
+// Stacked: side by side while the card is full width, one per row in the large screens' narrow column
+const CHARTS_GRID = (count: number, stacked?: boolean) =>
+  cn('grid gap-6', count === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2', stacked && 'lg:grid-cols-1')
 
 interface HistoryHeaderProps {
   title: string
@@ -156,10 +159,9 @@ interface HistoryHeaderProps {
   onRange?: (range: HistoryRange) => void
   /** Which ranges can be picked; all of them when undefined */
   applies?: (range: HistoryRange) => boolean
-  pinned: boolean
 }
 
-function HistoryHeader({ title, range, onRange, applies, pinned }: HistoryHeaderProps) {
+function HistoryHeader({ title, range, onRange, applies }: HistoryHeaderProps) {
   return (
     <CardHeader>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -180,9 +182,7 @@ function HistoryHeader({ title, range, onRange, applies, pinned }: HistoryHeader
           ))}
         </div>
       </div>
-      <p className="text-xs text-muted-foreground">
-        {pinned ? 'Up to the round shown' : 'Up to now'}. Click a point to see Réti as it was then.
-      </p>
+      <p className="text-xs text-muted-foreground">Click a point to time travel.</p>
     </CardHeader>
   )
 }
@@ -191,10 +191,10 @@ function HistoryHeader({ title, range, onRange, applies, pinned }: HistoryHeader
  * The charts' places while their first points load: label, figure and plot of each, and the
  * card's "Chart data sampled every …" note.
  */
-function MetricChartsSkeleton({ metrics }: { metrics: MetricSpec[] }) {
+function MetricChartsSkeleton({ metrics, stacked }: { metrics: MetricSpec[]; stacked?: boolean }) {
   return (
     <div aria-busy>
-      <div className={CHARTS_GRID(metrics.length)}>
+      <div className={CHARTS_GRID(metrics.length, stacked)}>
         {metrics.map((metric) => (
           <div key={metric.key}>
             <p className="text-sm font-medium text-muted-foreground">{metric.label}</p>
@@ -217,13 +217,13 @@ export function TotalsHistorySkeleton({
   target,
   title,
   className,
+  stacked,
 }: Omit<TotalsHistoryProps, 'target'> & { target?: TotalsTarget }) {
-  const { pinned } = useAtRound()
   return (
     <Card className={className}>
-      <HistoryHeader title={title} range={DEFAULT_RANGE} pinned={pinned} />
+      <HistoryHeader title={title} range={DEFAULT_RANGE} />
       <CardContent>
-        <MetricChartsSkeleton metrics={metricsFor(target ?? { validator: 0 })} />
+        <MetricChartsSkeleton metrics={metricsFor(target ?? { validator: 0 })} stacked={stacked} />
       </CardContent>
     </Card>
   )
@@ -241,9 +241,10 @@ export const TotalsHistory = React.memo(function TotalsHistory({
   target,
   title,
   className,
+  stacked,
 }: TotalsHistoryProps) {
   const supportQuery = useQuery(timeTravelSupportQueryOptions)
-  const { round, pinned } = useAtRound()
+  const { round } = useAtRound()
   const [range, setRange] = React.useState<HistoryRange>(DEFAULT_RANGE)
 
   const supported = !!supportQuery.data?.supported
@@ -267,19 +268,18 @@ export const TotalsHistory = React.memo(function TotalsHistory({
   if (!supported) {
     // Room for the card until the node says whether it can serve past rounds
     return supportQuery.isPending ? (
-      <TotalsHistorySkeleton target={target} title={title} className={className} />
+      <TotalsHistorySkeleton
+        target={target}
+        title={title}
+        className={className}
+        stacked={stacked}
+      />
     ) : null
   }
 
   return (
     <Card className={className}>
-      <HistoryHeader
-        title={title}
-        range={shown}
-        onRange={setRange}
-        applies={applies}
-        pinned={pinned}
-      />
+      <HistoryHeader title={title} range={shown} onRange={setRange} applies={applies} />
       <CardContent>
         {/* Keyed by range: a new range starts from skeletons, with nothing of the old one kept */}
         <HistoryCharts
@@ -288,6 +288,7 @@ export const TotalsHistory = React.memo(function TotalsHistory({
           range={shown}
           extent={extentQuery.isPlaceholderData ? undefined : extent}
           extentFailed={extentQuery.isError}
+          stacked={stacked}
         />
       </CardContent>
     </Card>
@@ -300,6 +301,7 @@ interface HistoryChartsProps {
   /** Undefined while it loads */
   extent: SeriesExtent | null | undefined
   extentFailed: boolean
+  stacked?: boolean
 }
 
 /**
@@ -307,7 +309,7 @@ interface HistoryChartsProps {
  * rest of the points, with a small spinner in the corner meanwhile. A new round keeps the old
  * charts up until the new ones draw.
  */
-function HistoryCharts({ target, range, extent, extentFailed }: HistoryChartsProps) {
+function HistoryCharts({ target, range, extent, extentFailed, stacked }: HistoryChartsProps) {
   const setRound = useSetRound()
 
   const windowQuery = useQuery({
@@ -373,7 +375,7 @@ function HistoryCharts({ target, range, extent, extentFailed }: HistoryChartsPro
     return <p className="text-sm text-destructive">Couldn&apos;t load history</p>
   }
   if (pending) {
-    return <MetricChartsSkeleton metrics={metrics} />
+    return <MetricChartsSkeleton metrics={metrics} stacked={stacked} />
   }
   if (data.length === 0) {
     return <p className="text-sm text-muted-foreground">No history in this range.</p>
@@ -381,7 +383,7 @@ function HistoryCharts({ target, range, extent, extentFailed }: HistoryChartsPro
 
   return (
     <div aria-busy={refining}>
-      <div className={CHARTS_GRID(metrics.length)}>
+      <div className={CHARTS_GRID(metrics.length, stacked)}>
         {metrics.map((metric) => (
           <MetricChart
             key={metric.key}
