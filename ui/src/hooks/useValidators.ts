@@ -112,8 +112,16 @@ export function useValidators(): {
     [nfdAppIds, nfdSupportQuery.isPending, round],
   )
 
-  const rewardTokenQueries = useQueuedQueries(rewardTokenQueryOptions, { host: 'algod' })
-  const gatingAssetQueries = useQueuedQueries(gatingAssetQueryOptions, { host: 'algod' })
+  // Unmetered, so they fire together: the SDK reads asset calls made within its batch window
+  // (10 ms) at the same round in one request
+  const rewardTokenQueries = useQueuedQueries(rewardTokenQueryOptions, {
+    host: 'algod',
+    metered: false,
+  })
+  const gatingAssetQueries = useQueuedQueries(gatingAssetQueryOptions, {
+    host: 'algod',
+    metered: false,
+  })
   const nfdQueries = useQueuedQueries(nfdQueryOptionsList, {
     host: 'nfd',
     metered: nfdSupportQuery.data !== true,
