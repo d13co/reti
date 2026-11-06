@@ -109,11 +109,6 @@ export function roundUnavailableMessage(error: Error): string {
   return error.message
 }
 
-/** The default query retry: three tries, none for a round that can't be shown. */
-export function retryUnlessRoundUnavailable(failureCount: number, error: Error): boolean {
-  return failureCount < 3 && !isRoundUnavailable(error)
-}
-
 /** Parses a `?round=` value: a positive integer, else undefined. */
 export function parseRound(value: unknown): bigint | undefined {
   if (typeof value === 'bigint') {

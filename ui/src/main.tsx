@@ -22,7 +22,7 @@ import { hydrateQueryCache } from '@/lib/queryPersister'
 import { ThemeProvider } from '@/providers/ThemeProvider'
 import { routeTree } from '@/routeTree.gen'
 import '@/styles/main.css'
-import { retryUnlessRoundUnavailable } from '@/utils/round'
+import { retryRead } from '@/utils/readErrors'
 import {
   getAlgodConfigFromViteEnvironment,
   getAlgodNetwork,
@@ -96,7 +96,7 @@ notifyManager.setScheduler(createCoalescingScheduler())
 
 // Tanstack Query client instance
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: retryUnlessRoundUnavailable } },
+  defaultOptions: { queries: { retry: retryRead } },
 })
 
 // Tanstack Router instance

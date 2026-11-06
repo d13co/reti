@@ -7,6 +7,7 @@ import {
   StoredAlgodHistory,
 } from '@/lib/algodHistoryStore'
 import { PERSISTED_GC_TIME } from '@/lib/queryPersister'
+import { retryRead } from '@/utils/readErrors'
 import { AlgodVerChange } from '@/utils/upgrades'
 
 /**
@@ -84,7 +85,7 @@ export const poolAlgodChangesQueryOptions = (queryClient: QueryClient, poolAppId
     },
     staleTime: HISTORY_STALE_TIME,
     gcTime: PERSISTED_GC_TIME,
-    retry: 2,
+    retry: (failureCount, error) => failureCount < 2 && retryRead(failureCount, error),
   })
 }
 

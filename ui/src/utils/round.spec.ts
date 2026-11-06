@@ -1,4 +1,3 @@
-import { FutureRoundError, RetiNotDeployedError, TimeTravelUnavailableError } from 'reti-ghost-sdk'
 import {
   isPinnedQueryKey,
   keepAcrossRounds,
@@ -6,7 +5,6 @@ import {
   PINNED_GC_TIME,
   pinnedSignal,
   roundKey,
-  retryUnlessRoundUnavailable,
   roundQueryDefaults,
 } from '@/utils/round'
 
@@ -78,18 +76,6 @@ describe('parseRound', () => {
     for (const value of [undefined, null, 0, -1, 1.5, '', 'abc', '1e6', '-5', 0n, NaN, {}]) {
       expect(parseRound(value)).toBeUndefined()
     }
-  })
-})
-
-describe('retryUnlessRoundUnavailable', () => {
-  it("retries a failed read, but not a round that can't be shown", () => {
-    expect(retryUnlessRoundUnavailable(0, new Error('network'))).toBe(true)
-    expect(retryUnlessRoundUnavailable(3, new Error('network'))).toBe(false)
-    expect(retryUnlessRoundUnavailable(0, new FutureRoundError(100n, 90n))).toBe(false)
-    expect(retryUnlessRoundUnavailable(0, new TimeTravelUnavailableError(10n, 90n, 'stock'))).toBe(
-      false,
-    )
-    expect(retryUnlessRoundUnavailable(0, new RetiNotDeployedError(10n, 50n))).toBe(false)
   })
 })
 

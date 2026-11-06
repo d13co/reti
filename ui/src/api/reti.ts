@@ -8,6 +8,7 @@ import {
   getAlgodConfigFromViteEnvironment,
   getReadAlgodConfigFromViteEnvironment,
 } from '@/utils/network/getAlgoClientConfigs'
+import { retryRead } from '@/utils/readErrors'
 import { sleep } from '@/utils/time'
 
 /**
@@ -204,7 +205,7 @@ export const timeTravelSupportQueryOptions = queryOptions({
   },
   staleTime: Infinity,
   gcTime: Infinity,
-  retry: 1,
+  retry: (failureCount, error) => failureCount < 1 && retryRead(failureCount, error),
 })
 
 /** A round's block timestamp, in seconds. Past headers never change. */

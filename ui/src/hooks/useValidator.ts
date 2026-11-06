@@ -25,7 +25,8 @@ import { GatingType } from '@/constants/gating'
 import { useAtRound } from '@/hooks/useAtRound'
 import { useExtrasReady } from '@/hooks/useExtrasReady'
 import { Validator } from '@/interfaces/validator'
-import { keepAcrossRounds, retryUnlessRoundUnavailable } from '@/utils/round'
+import { retryRead } from '@/utils/readErrors'
+import { keepAcrossRounds } from '@/utils/round'
 
 export interface ValidatorView {
   /** Undefined until the validator's first round loads */
@@ -40,7 +41,7 @@ export interface ValidatorView {
 
 /** Not found is an answer, not a failure: don't retry it. */
 const retryUnlessNotFound = (failureCount: number, error: Error) =>
-  !(error instanceof ValidatorNotFoundError) && retryUnlessRoundUnavailable(failureCount, error)
+  !(error instanceof ValidatorNotFoundError) && retryRead(failureCount, error)
 
 function combineAssets(results: UseQueryResult<algosdk.modelsv2.Asset>[]) {
   return {

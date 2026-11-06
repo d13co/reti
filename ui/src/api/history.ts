@@ -17,6 +17,7 @@ import { Trace, traceQuery } from '@/api/trace'
 import { untilAborted } from '@/utils/abort'
 import { type ChangeSnapshot, describeChange, type PoolSnapshot } from '@/utils/changes'
 import { dayjs } from '@/utils/dayjs'
+import { retryRead } from '@/utils/readErrors'
 import { pinnedSignal, roundKey, roundQueryDefaults } from '@/utils/round'
 
 /**
@@ -763,7 +764,7 @@ export const stakerHistoryQueryOptions = (
       return { ...history, complete: true }
     },
     enabled: !!address,
-    retry: 1,
+    retry: (failureCount, error) => failureCount < 1 && retryRead(failureCount, error),
     ...roundQueryDefaults(round, {
       staleTime: STAKER_HISTORY_STALE_TIME,
       refetchOnWindowFocus: false,
