@@ -53,15 +53,20 @@ if (import.meta.env.VITE_ALGOD_NETWORK === 'localnet') {
     WalletId.DEFLY,
     WalletId.PERA,
     { id: WalletId.LUTE, options: { siteName } },
-    {
-      id: WalletId.WALLETCONNECT,
-      options: {
-        projectId: WALLETCONNECT_PROJECT_ID,
-        explorerRecommendedWalletIds: [
-          '5864e2ced7c293ed18ac35e0db085c09ed567d67346ccb6f58a0327a75137489',
-        ],
-      },
-    },
+    // use-wallet throws at startup without a project id, so leave WalletConnect out instead
+    ...(WALLETCONNECT_PROJECT_ID
+      ? [
+          {
+            id: WalletId.WALLETCONNECT,
+            options: {
+              projectId: WALLETCONNECT_PROJECT_ID,
+              explorerRecommendedWalletIds: [
+                '5864e2ced7c293ed18ac35e0db085c09ed567d67346ccb6f58a0327a75137489',
+              ],
+            },
+          } satisfies SupportedWallet,
+        ]
+      : []),
     WalletId.KIBISIS,
     WalletId.EXODUS,
     WalletId.W3_WALLET,

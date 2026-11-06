@@ -10,8 +10,9 @@ export function getAlgodConfigFromViteEnvironment(): AlgoViteClientConfig {
 
   return {
     server: import.meta.env.VITE_ALGOD_SERVER,
-    port: import.meta.env.VITE_ALGOD_PORT,
-    token: import.meta.env.VITE_ALGOD_TOKEN,
+    // Hosts like Cloudflare Pages drop empty env vars, and use-wallet rejects a missing token
+    port: import.meta.env.VITE_ALGOD_PORT ?? '',
+    token: import.meta.env.VITE_ALGOD_TOKEN ?? '',
     network: import.meta.env.VITE_ALGOD_NETWORK,
   }
 }
