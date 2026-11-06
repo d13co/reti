@@ -263,8 +263,8 @@ importers:
         specifier: 7.53.0
         version: 7.53.0(react@18.3.1)
       reti-ghost-sdk:
-        specifier: file:vendor/reti-ghost-sdk-0.3.0-dt.16.tgz
-        version: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.16.tgz(@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0))(dt-algosdk@3.9.0-dt.5.2.0.0)
+        specifier: file:vendor/reti-ghost-sdk-0.3.0-dt.17.tgz
+        version: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.17.tgz(@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0))(dt-algosdk@3.9.0-dt.5.2.0.0)
       sonner:
         specifier: 1.5.0
         version: 1.5.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -4683,9 +4683,9 @@ packages:
     resolution: {integrity: sha512-oKWePCxqpd6FlLvGV1VU0x7bkPmmCNolxzjMf4NczoDnQcIWrAF+cPtZn5i6n+RfD2d9i0tzpKnG6Yk168yIyw==}
     hasBin: true
 
-  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.16.tgz:
-    resolution: {integrity: sha512-vVuHZaBU1668+lRhqB2a+gGp7ljpQxipC4uBoefNussFkWg/+Sf9gY4FVHNbsO+bJ/TS7lV2gQhtSUMKGAZX9g==, tarball: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.16.tgz}
-    version: 0.3.0-dt.16
+  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.17.tgz:
+    resolution: {integrity: sha512-fRkmmMcFQvi1o6vUYGSFfriJa3FvZ35IeJaQnXfaql+fcr5nOynBJPPZO1BjcMi17b7RrpAFAbx+cFf1si6rCA==, tarball: file:ui/vendor/reti-ghost-sdk-0.3.0-dt.17.tgz}
+    version: 0.3.0-dt.17
     peerDependencies:
       '@algorandfoundation/algokit-utils': npm:@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0
       algosdk: npm:dt-algosdk@3.9.0-dt.5.2.0.0
@@ -10246,7 +10246,7 @@ snapshots:
       path-parse: 1.0.7
       supports-preserve-symlinks-flag: 1.0.0
 
-  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.16.tgz(@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0))(dt-algosdk@3.9.0-dt.5.2.0.0):
+  reti-ghost-sdk@file:ui/vendor/reti-ghost-sdk-0.3.0-dt.17.tgz(@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0))(dt-algosdk@3.9.0-dt.5.2.0.0):
     dependencies:
       '@algorandfoundation/algokit-utils': '@d13co/dt-algokit-utils@9.2.3-dt.5.2.0.0(dt-algosdk@3.9.0-dt.5.2.0.0)'
       algosdk: dt-algosdk@3.9.0-dt.5.2.0.0

@@ -674,15 +674,10 @@ export const assetQueryOptions = (assetId: number, round?: bigint, queryClient?:
   queryOptions<algosdk.modelsv2.Asset>({
     queryKey: ['asset', assetId, roundKey(round)],
     queryFn: (context) => {
+      // Not traced: the SDK batches asset reads at a round and logs the batch.
       const signal = pinnedSignal(round, context)
-      return traceRead(
-        'asset',
-        'fetchAssetAt',
-        { assetId, round },
-        () => fetchAssetAt(assetId, round, signal),
-        (asset) => asset.params?.unitName ?? '',
-        signal,
-      )
+      signal?.throwIfAborted()
+      return fetchAssetAt(assetId, round, signal)
     },
     enabled: assetId > 0,
     placeholderData: queryClient
