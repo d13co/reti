@@ -1,25 +1,20 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as React from 'react'
-import { changeRoundsInfiniteQueryOptions, TimelineTarget } from '@/api/history'
+import {
+  changeDescriptionsQueryOptions,
+  changeRoundsInfiniteQueryOptions,
+  TimelineTarget,
+} from '@/api/history'
 import { timeTravelSupportQueryOptions } from '@/api/reti'
 import { RefreshOverlay } from '@/components/RefreshOverlay'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { SkeletonText } from '@/components/ui/skeleton'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { useAtRound } from '@/hooks/useAtRound'
 import { useSetRound } from '@/hooks/useSetRound'
 import { Validator } from '@/interfaces/validator'
 import { dayjs } from '@/utils/dayjs'
-import { getPoolNameFromIndex } from '@/utils/pools'
 import { keepAcrossRounds } from '@/utils/round'
 import { cn } from '@/utils/ui'
 
@@ -36,16 +31,7 @@ export function ValidatorTimeline({ validator }: ValidatorTimelineProps) {
   const { round } = useAtRound()
   const setRound = useSetRound()
 
-  // 'validator', 'pool:<index>' or 'stakers:<index>'
-  const [selected, setSelected] = React.useState('validator')
-
-  const target = React.useMemo((): TimelineTarget => {
-    const [kind, index] = selected.split(':')
-    const pool = validator.pools[Number(index)]
-    if (kind === 'pool' && pool) return { pool: pool.poolAppId }
-    if (kind === 'stakers' && pool) return { poolStakers: pool.poolAppId }
-    return { validator: validator.id }
-  }, [selected, validator.id, validator.pools])
+  const target = React.useMemo((): TimelineTarget => ({ validator: validator.id }), [validator.id])
 
   // Moving to another round keeps the list on screen until the new one loads
   const changesQuery = useInfiniteQuery(
@@ -55,39 +41,39 @@ export function ValidatorTimeline({ validator }: ValidatorTimelineProps) {
     }),
   )
 
+  // What each row did: one read per page, keyed by the page's rounds, so rows kept on screen from
+  // the previous round keep theirs
+  const queryClient = useQueryClient()
+  const poolAppIds = React.useMemo(
+    () => validator.pools.map((pool) => pool.poolAppId),
+    [validator.pools],
+  )
+  const descriptionQueries = useQueries({
+    queries: (changesQuery.data?.pages ?? []).map((page) => {
+      const options = changeDescriptionsQueryOptions(
+        queryClient,
+        validator.id,
+        poolAppIds,
+        page.changes,
+      )
+      return { ...options, enabled: !!supportQuery.data?.supported && options.enabled }
+    }),
+  })
+
   if (!supportQuery.data?.supported) {
     // Room for the card until the node says whether it can serve past rounds
     return supportQuery.isPending ? <ValidatorTimelineSkeleton /> : null
   }
 
-  const changes = changesQuery.data?.pages.flatMap((page) => page.changes) ?? []
+  const pages = changesQuery.data?.pages ?? []
+  const changes = pages.flatMap((page) => page.changes)
   // The change that produced what's on screen: the newest one at or before the round
   const shownChange = round === undefined ? undefined : changes[0]?.round
 
   return (
     <Card className="relative" aria-busy={changesQuery.isPlaceholderData}>
       <CardHeader>
-        <div className="flex items-center justify-between gap-x-2">
-          <CardTitle>Changes</CardTitle>
-          <Select value={selected} onValueChange={setSelected}>
-            <SelectTrigger className="-my-2.5 w-[170px]" aria-label="What to list the changes of">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="validator">Validator record</SelectItem>
-              {validator.pools.map((_, index) => (
-                <React.Fragment key={index}>
-                  <SelectItem value={`pool:${index}`}>
-                    {getPoolNameFromIndex(index)} state
-                  </SelectItem>
-                  <SelectItem value={`stakers:${index}`}>
-                    {getPoolNameFromIndex(index)} stakers
-                  </SelectItem>
-                </React.Fragment>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <CardTitle>Changes</CardTitle>
         <TimelineNote pinned={round !== undefined} />
       </CardHeader>
       <CardContent>
@@ -100,26 +86,51 @@ export function ValidatorTimeline({ validator }: ValidatorTimelineProps) {
         ) : (
           <ScrollArea className="h-80 pr-3">
             <ol className="space-y-0.5" data-test-id="validator-timeline">
-              {changes.map((change) => (
-                <li key={change.round.toString()}>
-                  <button
-                    type="button"
-                    onClick={() => setRound(change.round)}
-                    className={cn(
-                      'flex w-full items-center justify-between gap-x-3 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted',
-                      change.round === shownChange && 'bg-muted font-medium',
-                    )}
-                  >
-                    <span>{dayjs.unix(change.timestamp).format('lll')}</span>
-                    <span className="flex items-center gap-x-2">
-                      {change.deleted && <Badge variant="secondary">deleted</Badge>}
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {change.round.toLocaleString()}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              ))}
+              {pages.flatMap((page, pageIndex) => {
+                const descriptions = descriptionQueries[pageIndex]
+                return page.changes.map((change) => {
+                  const date = dayjs.unix(change.timestamp).format('lll')
+                  const description = descriptions?.data?.[change.round.toString()]
+                  // Still reading, or kept from another page while this one reads
+                  const describing =
+                    !description &&
+                    !!descriptions &&
+                    !descriptions.isError &&
+                    (descriptions.isPending || descriptions.isPlaceholderData)
+                  return (
+                    <li key={change.round.toString()}>
+                      <button
+                        type="button"
+                        onClick={() => setRound(change.round)}
+                        className={cn(
+                          'flex w-full items-center justify-between gap-x-3 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted',
+                          change.round === shownChange && 'bg-muted font-medium',
+                        )}
+                      >
+                        {description || describing ? (
+                          <span className="min-w-0">
+                            {description ? (
+                              <span className="block truncate" title={description}>
+                                {description}
+                              </span>
+                            ) : (
+                              <SkeletonText className="w-40" />
+                            )}
+                            <span className="block text-xs font-normal text-muted-foreground">
+                              {date}
+                            </span>
+                          </span>
+                        ) : (
+                          <span>{date}</span>
+                        )}
+                        <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                          {change.round.toLocaleString()}
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })
+              })}
             </ol>
             {changesQuery.hasNextPage && (
               <Button
@@ -160,7 +171,12 @@ function TimelineRowsSkeleton() {
           key={i}
           className="flex w-full items-center justify-between gap-x-3 px-2 py-1.5 text-sm"
         >
-          <SkeletonText className="w-36" />
+          <span>
+            <SkeletonText className="w-40" />
+            <span className="block text-xs">
+              <SkeletonText className="w-28" />
+            </span>
+          </span>
           <span className="text-xs">
             <SkeletonText className="w-16" />
           </span>
@@ -176,11 +192,7 @@ export function ValidatorTimelineSkeleton() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between gap-x-2">
-          <CardTitle>Changes</CardTitle>
-          {/* The target select */}
-          <div className="-my-2.5 h-9 w-[170px] animate-pulse rounded-md bg-muted" />
-        </div>
+        <CardTitle>Changes</CardTitle>
         <TimelineNote pinned={pinned} />
       </CardHeader>
       <CardContent>

@@ -6,6 +6,9 @@ import type {
   StakerHistory,
   StakerHistoryOptions,
   StakerPoolMembership,
+  TimelineOptions,
+  TimelinePage,
+  TimelineTarget,
   ValidatorTotals,
 } from 'reti-ghost-sdk'
 import { AVG_BLOCK_TIME_MS, CURRENT_TIME_MS, LAST_ROUND } from '@/utils/tests/constants'
@@ -82,11 +85,85 @@ export function mockPoolState(poolAppId: bigint, overrides: Record<string, unkno
   }
 }
 
+/** A validator's totals as the reader logs them. */
+export function mockValidatorTotals(validatorId: bigint, overrides: Partial<ValidatorTotals> = {}) {
+  return {
+    validatorId,
+    numPools: 1n,
+    totalStakers: 2n,
+    totalAlgoStaked: 5_000_000n,
+    ...overrides,
+  }
+}
+
+type GhostInput<T> = { methodArgsOrArgsArray: T }
+
+/**
+ * The generated reader's methods the UI calls through `retiSdk.ghost`, each with the round it
+ * reads at: override them per spec (`mockSdk.ghost.reader.getPoolStates.mockImplementation(...)`).
+ */
+function createMockGhostReader() {
+  return {
+    getValidatorTotals: vi.fn(
+      async (input: GhostInput<{ validatorIds: bigint[] }>, _round: bigint) =>
+        input.methodArgsOrArgsArray.validatorIds.map((id) => mockValidatorTotals(id)),
+    ),
+    getRegistryTotals: vi.fn(async (_input: GhostInput<unknown>, _round: bigint) => [
+      { numValidators: BigInt(MOCK_VALIDATORS.length), numStakers: 2n, staked: 0n },
+    ]),
+    getPoolStates: vi.fn(async (input: GhostInput<{ pools: bigint[] }>, _round: bigint) =>
+      input.methodArgsOrArgsArray.pools.map((id) => mockPoolState(id)),
+    ),
+  }
+}
+
+type MockGhostReader = ReturnType<typeof createMockGhostReader>
+type MockGhostAt = {
+  [K in keyof MockGhostReader]: (
+    input: Parameters<MockGhostReader[K]>[0],
+  ) => ReturnType<MockGhostReader[K]>
+}
+
+/** A ghost read's result at one round. */
+type MockRoundResult = { round: bigint } & (
+  | { ok: true; value: unknown }
+  | { ok: false; error: Error }
+)
+
+/** `retiSdk.ghost`: `atRounds` runs the calls `fn` makes at each round, every round ok. */
+function createMockGhost() {
+  const reader = createMockGhostReader()
+  const at = (round: bigint): MockGhostAt => ({
+    getValidatorTotals: (input) => reader.getValidatorTotals(input, round),
+    getRegistryTotals: (input) => reader.getRegistryTotals(input, round),
+    getPoolStates: (input) => reader.getPoolStates(input, round),
+  })
+  return {
+    reader,
+    atRounds: vi.fn(
+      async (
+        rounds: bigint[],
+        fn: (s: MockGhostAt) => Promise<unknown> | readonly Promise<unknown>[],
+        _options?: { signal?: AbortSignal },
+      ): Promise<MockRoundResult[]> =>
+        Promise.all(
+          rounds.map(async (round) => {
+            const calls = fn(at(round))
+            const value = await (Array.isArray(calls) ? Promise.all(calls) : calls)
+            return { round, ok: true as const, value }
+          }),
+        ),
+    ),
+  }
+}
+
 /** A series point's block time in the mock: round 0 at 1,700,000,000 s, a block every 2.8 s. */
 export const mockTimestampAt = (round: bigint) => 1_700_000_000 + Math.floor(Number(round) * 2.8)
 
 function createMockSdk() {
   const sdk = {
+    registryAppId: 1n,
+    ghost: createMockGhost(),
     getNumValidators: vi.fn(async () => MOCK_VALIDATORS.length),
     getRegistryTotals: vi.fn(async () => ({
       numValidators: MOCK_VALIDATORS.length,
@@ -207,7 +284,11 @@ function createMockSdk() {
         })),
     ),
     /** No changes on record */
-    getChangeRounds: vi.fn(async () => ({ changes: [] })),
+    getChangeRounds: vi.fn(
+      async (_target?: TimelineTarget, _options?: TimelineOptions): Promise<TimelinePage> => ({
+        changes: [],
+      }),
+    ),
     /** Never staked */
     getStakerPools: vi.fn(
       async (_staker: string, _options?: { maxRound?: number | bigint }) =>

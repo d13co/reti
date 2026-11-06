@@ -1,5 +1,7 @@
 import { infiniteQueryOptions, QueryClient, queryOptions } from '@tanstack/react-query'
 import {
+  type Change,
+  type PoolState,
   seriesRounds,
   type StakerHistory,
   type StakerHistoryProgress,
@@ -7,11 +9,13 @@ import {
   type TimelineOptions,
   type TimelinePage,
   type TimelineTarget,
+  type ValidatorTotals,
 } from 'reti-ghost-sdk'
 import { readAlgorand, registryCreation, retiSdk, timeReader } from '@/api/reti'
 import { roundAtTime, roundTimes, timestampOf } from '@/api/roundTimes'
 import { Trace, traceQuery } from '@/api/trace'
 import { untilAborted } from '@/utils/abort'
+import { type ChangeSnapshot, describeChange, type PoolSnapshot } from '@/utils/changes'
 import { dayjs } from '@/utils/dayjs'
 import { pinnedSignal, roundKey, roundQueryDefaults } from '@/utils/round'
 
@@ -159,6 +163,182 @@ export const changeRoundsInfiniteQueryOptions = (target: TimelineTarget, maxRoun
     getNextPageParam: (lastPage) => lastPage.next,
     staleTime: maxRound !== undefined ? Infinity : 1000 * 60,
   })
+
+/** A page's change descriptions by round (as a string). A round that couldn't be read is left out. */
+export type ChangeDescriptions = Record<string, string>
+
+const changeDescriptionsKeyRoot = (validatorId: number) =>
+  ['change-descriptions', timelineTargetKey({ validator: validatorId })] as const
+
+/**
+ * Every description already read for the validator, from any page, at any round on screen: a
+ * change's description never changes, so a page that overlaps another (after moving to another
+ * round) reads only the rows that are new to it.
+ */
+function knownDescriptions(queryClient: QueryClient, validatorId: number): Map<string, string> {
+  const known = new Map<string, string>()
+  const cached = queryClient.getQueriesData<ChangeDescriptions>({
+    queryKey: changeDescriptionsKeyRoot(validatorId),
+  })
+  for (const [, descriptions] of cached) {
+    for (const [round, label] of Object.entries(descriptions ?? {})) known.set(round, label)
+  }
+  return known
+}
+
+/**
+ * What each change on one page of a validator's list did ("+5,000 ALGO · +1 staker", "Pool 3
+ * added"), by comparing the validator at each change round with the round before: one batched
+ * read at both rounds of every row not yet described, with its pools (`poolAppIds`) to name the
+ * ones that moved. Rounds that fail to read are read once more.
+ *
+ * `poolAppIds` are the pools at the round on screen. Right after moving to another round they can
+ * still be the previous round's, short of pools the validator had at a row's round: such a row is
+ * left undescribed rather than described wrong, and the key (which has the pools) changes once
+ * they arrive. A page is final once every row is described; until then it's read again when next
+ * shown, for its missing rows only.
+ *
+ * Needs time travel: callers gate it on `timeTravelSupportQueryOptions`.
+ */
+export const changeDescriptionsQueryOptions = (
+  queryClient: QueryClient,
+  validatorId: number,
+  poolAppIds: bigint[],
+  changes: Change[],
+) => {
+  const rows = changes.filter((change) => !change.deleted)
+  const roundKeys = rows.map((change) => change.round.toString())
+  const pick = (known: Map<string, string>): ChangeDescriptions =>
+    Object.fromEntries(
+      roundKeys.flatMap((round) => (known.has(round) ? [[round, known.get(round)!]] : [])),
+    )
+  const complete = (described?: ChangeDescriptions) =>
+    !!described && Object.keys(described).length === rows.length
+
+  return queryOptions({
+    queryKey: [
+      ...changeDescriptionsKeyRoot(validatorId),
+      poolAppIds.map(String).join(','),
+      roundKeys.join(','),
+    ],
+    queryFn: async ({ signal }): Promise<ChangeDescriptions> => {
+      const known = knownDescriptions(queryClient, validatorId)
+      const described = pick(known)
+      const missing = rows.filter((change) => !known.has(change.round.toString()))
+      const trace = traceQuery(`change-descriptions validator:${validatorId}`, signal)
+      if (missing.length > 0) {
+        const rounds = seriesRounds(missing.flatMap((change) => [change.round - 1n, change.round]))
+        const read = (rounds: bigint[]) =>
+          readChangeSnapshots(trace, validatorId, poolAppIds, rounds)
+        const { snapshots, failed } = await read(rounds)
+        if (failed.length > 0) {
+          const retried = await read(failed)
+          for (const [round, snapshot] of retried.snapshots) snapshots.set(round, snapshot)
+        }
+        for (const change of missing) {
+          const label = describeChange(
+            change.round,
+            snapshots.get(change.round - 1n),
+            snapshots.get(change.round),
+          )
+          if (label) described[change.round.toString()] = label
+        }
+      }
+      trace.done(`${Object.keys(described).length}/${rows.length} described`)
+      return described
+    },
+    // Rows already described elsewhere show at once; when every row is, nothing is read
+    initialData: () => {
+      const described = pick(knownDescriptions(queryClient, validatorId))
+      return complete(described) ? described : undefined
+    },
+    placeholderData: () => pick(knownDescriptions(queryClient, validatorId)),
+    enabled: rows.length > 0,
+    // The validator at a past round never changes, so a complete page is final
+    staleTime: (query) => (complete(query.state.data) ? Infinity : 0),
+  })
+}
+
+/**
+ * The validator (with its pools) at each of `rounds`, in one batched read through the SDK's ghost
+ * reader: its series reads carry stake and stakers but not a pool's last payout, which tells a
+ * payout from a deposit. Rounds that fail to read are `failed`; rounds at which the validator had
+ * more pools than `pools` are left out of both.
+ */
+async function readChangeSnapshots(
+  trace: Trace,
+  validator: number,
+  pools: bigint[],
+  rounds: bigint[],
+): Promise<{ snapshots: Map<bigint, ChangeSnapshot>; failed: bigint[] }> {
+  const validatorId = BigInt(validator)
+  const registryAppId = retiSdk.registryAppId
+  const results = await trace.step(
+    'validator-snapshots',
+    {
+      rounds: rounds.length,
+      from: rounds[0],
+      to: rounds[rounds.length - 1],
+      pools: pools.length,
+      validator: validatorId,
+    },
+    () =>
+      retiSdk.ghost.atRounds(
+        rounds,
+        (s) => [
+          s.getValidatorTotals({
+            methodArgsOrArgsArray: { registryAppId, validatorIds: [validatorId] },
+          }),
+          s.getRegistryTotals({ methodArgsOrArgsArray: { registryAppId } }),
+          // A validator with no pools yet has none to read
+          ...(pools.length > 0 ? [s.getPoolStates({ methodArgsOrArgsArray: { pools } })] : []),
+        ],
+        trace.signal ? { signal: trace.signal } : undefined,
+      ),
+    (results) => `${results.filter((result) => result.ok).length}/${results.length} ok`,
+  )
+
+  const snapshots = new Map<bigint, ChangeSnapshot>()
+  const failed: bigint[] = []
+  for (const result of results) {
+    if (!result.ok) {
+      failed.push(result.round)
+      continue
+    }
+    const [totalsResult, registryResult, statesResult] = result.value
+    const [totals] = totalsResult as ValidatorTotals[]
+    const [registry] = registryResult as { numValidators: bigint }[]
+    const states = (statesResult ?? []) as PoolStateRead[]
+    if (!totals || !registry) {
+      failed.push(result.round)
+      continue
+    }
+    // Pools added after the round on screen's pool list: can't name them, so don't guess
+    if (BigInt(totals.numPools) > BigInt(pools.length)) continue
+    snapshots.set(result.round, {
+      // Validator ids run from 1 to the registry's count
+      exists: validatorId <= BigInt(registry.numValidators),
+      stakers: totals.totalStakers,
+      staked: totals.totalAlgoStaked,
+      pools: states.map(poolSnapshot),
+    })
+  }
+  return { snapshots, failed }
+}
+
+/** The part of the reader's pool state a snapshot takes. */
+type PoolStateRead = Pick<
+  PoolState,
+  'exists' | 'numStakers' | 'staked' | 'lastPayout' | 'epochNumber'
+>
+
+const poolSnapshot = (state: PoolStateRead): PoolSnapshot => ({
+  exists: state.exists,
+  stakers: state.numStakers,
+  staked: state.staked,
+  lastPayout: state.lastPayout,
+  epochNumber: state.epochNumber,
+})
 
 /** How far back a history chart reaches from the round it ends at. */
 export type HistoryRange = '1m' | '3m' | '1y' | 'all'

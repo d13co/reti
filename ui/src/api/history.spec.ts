@@ -2,6 +2,7 @@ import { QueryClient } from '@tanstack/react-query'
 import type { StakeEvent, StakerHistory, StakerHistoryOptions } from 'reti-ghost-sdk'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  changeDescriptionsQueryOptions,
   mergeSeries,
   stakerHistoryQueryKey,
   stakerHistoryQueryOptions,
@@ -17,7 +18,7 @@ import {
   type TotalsPoint,
 } from '@/api/history'
 import { roundTimes } from '@/api/roundTimes'
-import { mockSdk, mockTimestampAt } from '@/utils/tests/sdk'
+import { mockPoolState, mockSdk, mockTimestampAt, mockValidatorTotals } from '@/utils/tests/sdk'
 import { PINNED_GC_TIME } from '@/utils/round'
 
 vi.mock('@/api/reti', async () => (await import('@/utils/tests/sdk')).mockRetiModule())
@@ -348,5 +349,163 @@ describe('stakerHistoryQueryOptions', () => {
     const queryClient = new QueryClient()
     await queryClient.fetchQuery(stakerHistoryQueryOptions(queryClient, STAKER, undefined, 7))
     expect(queryClient.getQueryData(stakerPoolsQueryKey(STAKER))).toBeUndefined()
+  })
+})
+
+describe('changeDescriptionsQueryOptions', () => {
+  const VALIDATOR = 1
+  const POOLS = [1010n, 1020n]
+  const change = (round: bigint, deleted = false) => ({ round, timestamp: 0, deleted })
+  const { reader } = mockSdk.ghost
+
+  /** The next batched read fails at `failing` rounds, as a node that drops a request would. */
+  const failNextReadAt = (failing: bigint[]) => {
+    const real = mockSdk.ghost.atRounds.getMockImplementation()!
+    mockSdk.ghost.atRounds.mockImplementationOnce(async (rounds, fn, options) =>
+      (await real(rounds, fn, options)).map((result) =>
+        failing.includes(result.round)
+          ? { round: result.round, ok: false as const, error: new Error('dropped') }
+          : result,
+      ),
+    )
+  }
+
+  beforeEach(() => {
+    mockSdk.ghost.atRounds.mockClear()
+    reader.getValidatorTotals.mockReset()
+    reader.getPoolStates.mockReset()
+    // Pool 1020 takes 5,000 ALGO and a staker at round 200; the validator with it
+    reader.getValidatorTotals.mockImplementation(async ({ methodArgsOrArgsArray }, round) =>
+      methodArgsOrArgsArray.validatorIds.map((id) =>
+        round >= 200n
+          ? mockValidatorTotals(id, {
+              numPools: 2n,
+              totalStakers: 3n,
+              totalAlgoStaked: 5_002_000_000n,
+            })
+          : mockValidatorTotals(id, {
+              numPools: 2n,
+              totalStakers: 2n,
+              totalAlgoStaked: 2_000_000n,
+            }),
+      ),
+    )
+    reader.getPoolStates.mockImplementation(async ({ methodArgsOrArgsArray }, round) =>
+      methodArgsOrArgsArray.pools.map((id) =>
+        id === 1020n && round >= 200n
+          ? mockPoolState(id, { numStakers: 3n, staked: 5_001_000_000n })
+          : mockPoolState(id),
+      ),
+    )
+  })
+
+  it('reads both rounds of every row in one batched read, and leaves deleted rows to the list', async () => {
+    const queryClient = new QueryClient()
+    const changes = [change(300n, true), change(200n), change(100n)]
+    const descriptions = await queryClient.fetchQuery(
+      changeDescriptionsQueryOptions(queryClient, VALIDATOR, POOLS, changes),
+    )
+    expect(mockSdk.ghost.atRounds).toHaveBeenCalledTimes(1)
+    expect(mockSdk.ghost.atRounds.mock.calls[0][0]).toEqual([99n, 100n, 199n, 200n])
+    expect(reader.getPoolStates).toHaveBeenCalledWith(
+      { methodArgsOrArgsArray: { pools: POOLS } },
+      200n,
+    )
+    expect(descriptions).toEqual({
+      '200': 'Pool 2 · +5,000 ALGO · +1 staker',
+      '100': 'Settings changed',
+    })
+  })
+
+  it('reads a round that failed once more', async () => {
+    failNextReadAt([199n])
+    const queryClient = new QueryClient()
+    const descriptions = await queryClient.fetchQuery(
+      changeDescriptionsQueryOptions(queryClient, VALIDATOR, POOLS, [change(200n), change(100n)]),
+    )
+    expect(mockSdk.ghost.atRounds).toHaveBeenCalledTimes(2)
+    expect(mockSdk.ghost.atRounds.mock.calls[1][0]).toEqual([199n])
+    expect(descriptions).toEqual({
+      '200': 'Pool 2 · +5,000 ALGO · +1 staker',
+      '100': 'Settings changed',
+    })
+  })
+
+  it('leaves out a row that failed twice, and reads it again next time, alone', async () => {
+    failNextReadAt([199n])
+    failNextReadAt([199n])
+    const queryClient = new QueryClient()
+    const options = changeDescriptionsQueryOptions(queryClient, VALIDATOR, POOLS, [
+      change(200n),
+      change(100n),
+    ])
+    expect(await queryClient.fetchQuery(options)).toEqual({ '100': 'Settings changed' })
+
+    // Incomplete, so not final: the next fetch reads the missing row's rounds only
+    expect(await queryClient.fetchQuery(options)).toEqual({
+      '200': 'Pool 2 · +5,000 ALGO · +1 staker',
+      '100': 'Settings changed',
+    })
+    expect(mockSdk.ghost.atRounds).toHaveBeenCalledTimes(3)
+    expect(mockSdk.ghost.atRounds.mock.calls[2][0]).toEqual([199n, 200n])
+
+    // Complete: final
+    await queryClient.fetchQuery(options)
+    expect(mockSdk.ghost.atRounds).toHaveBeenCalledTimes(3)
+  })
+
+  it('leaves out a row with more pools than the list read with, until the pools catch up', async () => {
+    // Pool 1030 is added at round 200
+    reader.getValidatorTotals.mockImplementation(async ({ methodArgsOrArgsArray }, round) =>
+      methodArgsOrArgsArray.validatorIds.map((id) =>
+        mockValidatorTotals(id, { numPools: round >= 200n ? 3n : 2n }),
+      ),
+    )
+    reader.getPoolStates.mockImplementation(async ({ methodArgsOrArgsArray }, round) =>
+      methodArgsOrArgsArray.pools.map((id) =>
+        mockPoolState(id, id === 1030n && round < 200n ? { exists: false } : {}),
+      ),
+    )
+    const queryClient = new QueryClient()
+    const changes = [change(200n), change(100n)]
+
+    // The previous round's two pools: no guess at round 200
+    const stale = await queryClient.fetchQuery(
+      changeDescriptionsQueryOptions(queryClient, VALIDATOR, POOLS, changes),
+    )
+    expect(stale).toEqual({ '100': 'Settings changed' })
+
+    const fresh = await queryClient.fetchQuery(
+      changeDescriptionsQueryOptions(queryClient, VALIDATOR, [...POOLS, 1030n], changes),
+    )
+    expect(fresh).toEqual({ '200': 'Pool 3 added', '100': 'Settings changed' })
+  })
+
+  it('reads only the rows no other page has described, and nothing when all are', async () => {
+    const queryClient = new QueryClient()
+    await queryClient.fetchQuery(
+      changeDescriptionsQueryOptions(queryClient, VALIDATOR, POOLS, [change(200n), change(100n)]),
+    )
+    // The list at another round: one new row, one already described
+    const overlapping = changeDescriptionsQueryOptions(queryClient, VALIDATOR, POOLS, [
+      change(250n),
+      change(200n),
+    ])
+    expect((overlapping.placeholderData as unknown as () => Record<string, string>)()).toEqual({
+      '200': 'Pool 2 · +5,000 ALGO · +1 staker',
+    })
+    const descriptions = await queryClient.fetchQuery(overlapping)
+    expect(mockSdk.ghost.atRounds).toHaveBeenCalledTimes(2)
+    expect(mockSdk.ghost.atRounds.mock.calls[1][0]).toEqual([249n, 250n])
+    expect(descriptions).toEqual({
+      '250': 'Settings changed',
+      '200': 'Pool 2 · +5,000 ALGO · +1 staker',
+    })
+
+    // Every row known: no read at all
+    await queryClient.fetchQuery(
+      changeDescriptionsQueryOptions(queryClient, VALIDATOR, POOLS, [change(250n), change(100n)]),
+    )
+    expect(mockSdk.ghost.atRounds).toHaveBeenCalledTimes(2)
   })
 })
