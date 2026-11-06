@@ -3,9 +3,11 @@ import {
   causes,
   httpStatusOf,
   isFinalReadError,
+  isRetriedByClient,
   nodeMessageOf,
   readFailureMessage,
   retryRead,
+  retryReadDelay,
 } from '@/utils/readErrors'
 
 /** An error shaped like algosdk's HTTPClient errors: `status`, and the node's JSON body as text. */
@@ -104,10 +106,56 @@ describe('retryRead', () => {
     expect(retryRead(0, httpError(504))).toBe(false)
   })
 
-  it('retries a network error, a busy node and other server errors', () => {
+  it('retries a network error, a busy node and other server errors once: the client already did', () => {
     expect(retryRead(0, new TypeError('Failed to fetch'))).toBe(true)
-    expect(retryRead(2, busy())).toBe(true)
-    expect(retryRead(0, httpError(502))).toBe(true)
+    expect(retryRead(1, new TypeError('Failed to fetch'))).toBe(false)
+    expect(retryRead(0, wrapped(busy()))).toBe(true)
+    expect(retryRead(1, wrapped(busy()))).toBe(false)
+    expect(retryRead(0, httpError(429))).toBe(true)
+    expect(retryRead(1, httpError(502))).toBe(false)
+  })
+
+  it('retries a failure the client never saw three times', () => {
+    expect(retryRead(2, new Error('batch load left out'))).toBe(true)
+    expect(retryRead(3, new Error('batch load left out'))).toBe(false)
+  })
+
+  it("leaves a REST API's failures to the default count: its client retries by its own rules", () => {
+    const axios = Object.assign(new Error('Request failed with status code 502'), {
+      isAxiosError: true,
+      response: { status: 502 },
+    })
+    expect(isRetriedByClient(axios)).toBe(false)
+    expect(retryRead(2, axios)).toBe(true)
+  })
+})
+
+describe('isRetriedByClient', () => {
+  it('finds a retried status or network error through a wrapper', () => {
+    expect(isRetriedByClient(wrapped(busy()))).toBe(true)
+    expect(isRetriedByClient(wrapped(new TypeError('Failed to fetch')))).toBe(true)
+    expect(isRetriedByClient(httpError(400))).toBe(false)
+    expect(isRetriedByClient(new Error('network'))).toBe(false)
+  })
+})
+
+describe('retryReadDelay', () => {
+  it('waits as react-query would for a failure the client never saw', () => {
+    expect(retryReadDelay(0, new Error('x'))).toBe(1000)
+    expect(retryReadDelay(2, new Error('x'))).toBe(4000)
+    expect(retryReadDelay(10, new Error('x'))).toBe(30_000)
+  })
+
+  it('waits at least 10 s after the client gave up, and as long as Retry-After asks', () => {
+    expect(retryReadDelay(0, wrapped(busy()))).toBe(10_000)
+    const limited = Object.assign(httpError(429), {
+      response: { status: 429, text: '', headers: { 'retry-after': '45' } },
+    })
+    expect(retryReadDelay(0, wrapped(limited))).toBe(45_000)
+    const longer = Object.assign(httpError(429), {
+      response: { status: 429, text: '', headers: { 'retry-after': '3600' } },
+    })
+    expect(retryReadDelay(0, longer)).toBe(5 * 60_000)
   })
 })
 

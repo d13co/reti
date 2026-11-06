@@ -1,4 +1,9 @@
-import { AdaptiveBatchSize, isRateLimitError } from '@/utils/rateLimit'
+import {
+  AdaptiveBatchSize,
+  getBatchSizeController,
+  isRateLimitError,
+  noteAlgodRetryWait,
+} from '@/utils/rateLimit'
 
 const ALGOD_STORAGE_KEY = 'reti-batch-size:algod'
 
@@ -31,6 +36,13 @@ describe('isRateLimitError', () => {
     expect(isRateLimitError(history)).toBe(false)
     expect(isRateLimitError(Object.assign(new Error('ghostkit: 503'), { cause: history }))).toBe(
       false,
+    )
+  })
+
+  it('finds a rate limit under a wrapper', () => {
+    const limited = { status: 429, message: 'Received status 429' }
+    expect(isRateLimitError(Object.assign(new Error('ghostkit: failed'), { cause: limited }))).toBe(
+      true,
     )
   })
 
@@ -113,5 +125,37 @@ describe('AdaptiveBatchSize', () => {
 
     window.localStorage.setItem(ALGOD_STORAGE_KEY, '0')
     expect(new AdaptiveBatchSize('algod').current).toBe(4)
+  })
+})
+
+describe('noteAlgodRetryWait', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('backs the algod queues off on a rate limit or a busy node, at most once a second', () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1_000_000)
+    const algod = getBatchSizeController('algod')
+    // Two clean ticks per step up: climb to the ceiling first, so each halving shows
+    for (let i = 0; i < 20; i++) algod.recordClean()
+    expect(algod.current).toBe(8)
+
+    noteAlgodRetryWait({ reason: 'rate-limited' })
+    expect(algod.current).toBe(4)
+    noteAlgodRetryWait({ reason: 'node-busy' })
+    expect(algod.current).toBe(4)
+
+    now.mockReturnValue(1_001_000)
+    noteAlgodRetryWait({ reason: 'node-busy' })
+    expect(algod.current).toBe(2)
+  })
+
+  it('ignores waits that say nothing about load', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(2_000_000)
+    const algod = getBatchSizeController('algod')
+    for (let i = 0; i < 20; i++) algod.recordClean()
+    noteAlgodRetryWait({ reason: 'server-error' })
+    noteAlgodRetryWait({ reason: 'network' })
+    expect(algod.current).toBe(8)
   })
 })

@@ -245,6 +245,9 @@ export async function fetchBlockTimes(
   } catch (error) {
     // Kept as is: aborted, or a round that can't be shown (which mustn't be retried)
     if (signal?.aborted || isRoundUnavailable(error)) throw error
-    throw new Error(`An error occurred during block time calculation: ${error}`)
+    // With its cause, so retries and messages still see why (see `@/utils/readErrors`)
+    throw Object.assign(new Error(`An error occurred during block time calculation: ${error}`), {
+      cause: error,
+    })
   }
 }

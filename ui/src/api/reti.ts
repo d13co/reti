@@ -8,16 +8,21 @@ import {
   getAlgodConfigFromViteEnvironment,
   getReadAlgodConfigFromViteEnvironment,
 } from '@/utils/network/getAlgoClientConfigs'
+import { noteAlgodRetryWait } from '@/utils/rateLimit'
 import { retryRead } from '@/utils/readErrors'
 import { sleep } from '@/utils/time'
 
 /**
  * The algod every protocol read goes through. A dtalgorand node here makes every read work at
  * any past round; the regular `algorandClient` (see `@/api/clients`) keeps serving the wallet,
- * writes and the reads writes depend on.
+ * writes and the reads writes depend on. It retries by dt-algosdk's default policy; each wait on
+ * a rate limited or busy node also backs the algod queues off.
  */
 export const readAlgorand = AlgorandClient.fromConfig({
-  algodConfig: getReadAlgodConfigFromViteEnvironment(),
+  algodConfig: {
+    ...getReadAlgodConfigFromViteEnvironment(),
+    retry: { onWait: noteAlgodRetryWait },
+  },
 })
 
 /**

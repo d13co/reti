@@ -4,6 +4,7 @@ import { useAtRound } from '@/hooks/useAtRound'
 import { useBlockTime } from '@/hooks/useBlockTime'
 import { Validator } from '@/interfaces/validator'
 import { fetchRewardTokenHolding, remainingRewardsBalance } from '@/utils/contracts'
+import { retryRead } from '@/utils/readErrors'
 import { keepAcrossRounds, roundKey, roundQueryDefaults } from '@/utils/round'
 
 /**
@@ -41,12 +42,8 @@ export function useRewardBalance(validator: Validator, refreshing = false) {
             { pool: poolAppId, assetId: rewardTokenId, round },
             () => fetchRewardTokenHolding(poolAppId, rewardTokenId, round),
           ),
-        retry: (retryCount, error) => {
-          if (error?.message.includes('Pool 1 not found')) {
-            return false
-          }
-          return retryCount < 3
-        },
+        retry: (retryCount, error) =>
+          !error?.message.includes('Pool 1 not found') && retryRead(retryCount, error),
         enabled: !!rewardTokenId && !refreshing,
         ...roundQueryDefaults(round, { staleTime }),
       }),

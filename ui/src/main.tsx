@@ -24,7 +24,7 @@ import { hydrateQueryCache } from '@/lib/queryPersister'
 import { ThemeProvider } from '@/providers/ThemeProvider'
 import { routeTree } from '@/routeTree.gen'
 import '@/styles/main.css'
-import { retryRead } from '@/utils/readErrors'
+import { retryRead, retryReadDelay } from '@/utils/readErrors'
 import {
   getAlgodConfigFromViteEnvironment,
   getAlgodNetwork,
@@ -98,7 +98,7 @@ notifyManager.setScheduler(createCoalescingScheduler())
 
 // Tanstack Query client instance
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: retryRead } },
+  defaultOptions: { queries: { retry: retryRead, retryDelay: retryReadDelay } },
 })
 
 // NFD reads that failed while the node couldn't be asked whether it reads NFDs are made again

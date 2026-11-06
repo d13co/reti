@@ -1,5 +1,5 @@
-import { isHistoryUnavailable } from 'algosdk'
-import { causes } from '@/utils/readErrors'
+import { isHistoryUnavailable, type RetryWait } from 'algosdk'
+import { causes, httpStatusOf } from '@/utils/readErrors'
 
 /**
  * Upstreams the dashboard fans out to. Limits are learned per host, as separate services have
@@ -43,28 +43,45 @@ export function isRateLimitError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
     return false
   }
+  // Through the whole cause chain: ghostkit and the SDKs wrap the HTTP error
+  const chain = causes(error)
   // A 503 for history the node can't serve is not load: don't shrink the batch for it
-  if (causes(error).some(isHistoryUnavailable)) {
+  if (chain.some(isHistoryUnavailable)) {
     return false
   }
 
-  const candidate = error as {
-    status?: unknown
-    response?: { status?: unknown } | null
-    message?: unknown
-  }
-
-  const status =
-    typeof candidate.status === 'number' ? candidate.status : candidate.response?.status
-
-  if (typeof status === 'number' && RATE_LIMIT_STATUSES.has(status)) {
+  const status = httpStatusOf(error)
+  if (status !== undefined && RATE_LIMIT_STATUSES.has(status)) {
     return true
   }
 
-  return (
-    typeof candidate.message === 'string' &&
-    /\b(429|503|too many requests)\b/i.test(candidate.message)
-  )
+  return chain.some((e) => {
+    const message = (e as { message?: unknown } | null)?.message
+    return typeof message === 'string' && /\b(429|503|too many requests)\b/i.test(message)
+  })
+}
+
+/** The least time between two backoffs learned from a read client's own retries. */
+const RETRY_WAIT_BACKOFF_INTERVAL_MS = 1000
+
+let lastRetryWaitBackoff = 0
+
+/**
+ * Backs the algod queues off when the read node makes a request wait to retry it, rate limited
+ * or busy: the read client's retry policy calls this before each retry (`onWait`), so the queues
+ * learn of it at once rather than only after the request's retries have run out. At most once a
+ * second, as a queue learns at most once per batch tick.
+ */
+export function noteAlgodRetryWait(wait: Pick<RetryWait, 'reason'>): void {
+  if (wait.reason !== 'rate-limited' && wait.reason !== 'node-busy') {
+    return
+  }
+  const now = Date.now()
+  if (now - lastRetryWaitBackoff < RETRY_WAIT_BACKOFF_INTERVAL_MS) {
+    return
+  }
+  lastRetryWaitBackoff = now
+  getBatchSizeController('algod').recordThrottled()
 }
 
 function readStorage(key: string): string | null {

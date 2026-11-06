@@ -1,4 +1,12 @@
-import { isHistoryUnavailable, isNodeBusy, isTimeLimitExceeded } from 'algosdk'
+import {
+  DEFAULT_RETRY_POLICY,
+  isHistoryUnavailable,
+  isNetworkError,
+  isNodeBusy,
+  isTimeLimitExceeded,
+  retryAfterSeconds,
+} from 'algosdk'
+import { isAxiosError } from 'axios'
 import { isRoundUnavailable, roundUnavailableMessage } from '@/utils/round'
 
 /**
@@ -66,13 +74,59 @@ export function isFinalReadError(error: unknown): boolean {
   return causes(error).some(isFinalHere)
 }
 
+/** The statuses the algod clients' own retry policy retries (dt-algosdk's default policy). */
+const CLIENT_RETRY_STATUSES = new Set(DEFAULT_RETRY_POLICY.retryStatuses)
+
+function retriedByClientHere(error: unknown): boolean {
+  // The Nodely REST client retries by its own rules
+  if (isAxiosError(error)) return false
+  const status = statusOf(error)
+  return status !== undefined ? CLIENT_RETRY_STATUSES.has(status) : isNetworkError(error)
+}
+
 /**
- * The default query retry: three more tries, none for a round that can't be shown or a failure
- * another try can't change. utils has already retried transient HTTP failures by then, so only
- * network errors and transient 5xx (a node restarting) get more tries here.
+ * Whether a read failed in a way the algod client retries itself: a rate limit, a busy node, a
+ * server error or a network error. dt-algosdk's retry policy has then already made up to five
+ * tries over about 14 s (or given up at once on a `Retry-After` over 30 s).
+ */
+export function isRetriedByClient(error: unknown): boolean {
+  return causes(error).some(retriedByClientHere)
+}
+
+/** Tries after the first for a read the algod client already retried: in case a node restarts. */
+const CLIENT_RETRIED_QUERY_RETRIES = 1
+
+/** Tries after the first for any other read that another try might fix. */
+const QUERY_RETRIES = 3
+
+/**
+ * The default query retry. None for a round that can't be shown or a failure another try can't
+ * change. One for a failure the algod client already retried: more would multiply its tries (up
+ * to 20 requests for one read), and load a node that is already rate limiting or busy. Three for
+ * anything else, such as a read the SDK couldn't finish.
  */
 export function retryRead(failureCount: number, error: Error): boolean {
-  return failureCount < 3 && !isRoundUnavailable(error) && !isFinalReadError(error)
+  if (isRoundUnavailable(error) || isFinalReadError(error)) return false
+  return failureCount < (isRetriedByClient(error) ? CLIENT_RETRIED_QUERY_RETRIES : QUERY_RETRIES)
+}
+
+/** The least wait before a query the algod client already retried tries again. */
+const CLIENT_RETRIED_DELAY_MS = 1000 * 10 // 10 seconds
+
+/** The longest a query waits on a node's `Retry-After`. */
+const MAX_RETRY_AFTER_MS = 1000 * 60 * 5 // 5 minutes
+
+/**
+ * The default query retry delay. A read the algod client already retried waits at least 10 s,
+ * and as long as the node's `Retry-After` asks (the client gives up at once when that is over
+ * 30 s). Anything else waits as react-query would: 1, 2, 4 s.
+ */
+export function retryReadDelay(failureCount: number, error: unknown): number {
+  if (!isRetriedByClient(error)) return Math.min(1000 * 2 ** failureCount, 1000 * 30)
+  const retryAfter = causes(error)
+    .map(retryAfterSeconds)
+    .find((seconds) => seconds !== undefined)
+  return Math.min(MAX_RETRY_AFTER_MS, Math.max(CLIENT_RETRIED_DELAY_MS, (retryAfter ?? 0) * 1000))
 }
 
 /** Why a read failed, in a sentence for the viewer, or undefined when it's nothing we can name. */
