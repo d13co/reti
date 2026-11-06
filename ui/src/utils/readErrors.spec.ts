@@ -1,5 +1,12 @@
 import { FutureRoundError, RetiNotDeployedError, TimeTravelUnavailableError } from 'reti-ghost-sdk'
-import { causes, httpStatusOf, isFinalReadError, retryRead } from '@/utils/readErrors'
+import {
+  causes,
+  httpStatusOf,
+  isFinalReadError,
+  nodeMessageOf,
+  readFailureMessage,
+  retryRead,
+} from '@/utils/readErrors'
 
 /** An error shaped like algosdk's HTTPClient errors: `status`, and the node's JSON body as text. */
 function httpError(status: number, message = 'failed'): Error {
@@ -101,5 +108,53 @@ describe('retryRead', () => {
     expect(retryRead(0, new TypeError('Failed to fetch'))).toBe(true)
     expect(retryRead(2, busy())).toBe(true)
     expect(retryRead(0, httpError(502))).toBe(true)
+  })
+})
+
+describe('readFailureMessage', () => {
+  it('names each reason, through a wrapper', () => {
+    expect(readFailureMessage(wrapped(new FutureRoundError(100n, 90n)))).toMatch(
+      /hasn't happened yet/,
+    )
+    expect(readFailureMessage(wrapped(busy()))).toBe('The node is busy. Try again in a moment.')
+    expect(readFailureMessage(wrapped(historyUnavailable()))).toBe(
+      "The node can't serve this history right now.",
+    )
+    expect(readFailureMessage(wrapped(httpError(504)))).toBe(
+      'This took longer than the node allows.',
+    )
+    expect(readFailureMessage(wrapped(httpError(400), 'DTUnsupportedError'))).toBe(
+      "The read node doesn't support this.",
+    )
+    expect(readFailureMessage(wrapped(undefined, 'DTNotAvailableError'))).toBe(
+      "The read node doesn't support this.",
+    )
+  })
+
+  it('is undefined for anything else', () => {
+    expect(readFailureMessage(new Error('boom'))).toBeUndefined()
+    expect(readFailureMessage(httpError(500))).toBeUndefined()
+  })
+})
+
+describe('nodeMessageOf', () => {
+  it("finds the node's message through a wrapper", () => {
+    expect(nodeMessageOf(wrapped(historyUnavailable()))).toBe('the box index is incomplete')
+  })
+
+  it('reads a decoded body when there is no text', () => {
+    expect(nodeMessageOf({ response: { body: { message: 'bad round' } } })).toBe('bad round')
+  })
+
+  it('is undefined without a JSON message', () => {
+    expect(nodeMessageOf(new Error('boom'))).toBeUndefined()
+    expect(nodeMessageOf({ response: { text: 'not json' } })).toBeUndefined()
+    expect(nodeMessageOf({ response: { text: '{"message":""}' } })).toBeUndefined()
+  })
+
+  it('shortens a long message', () => {
+    const message = nodeMessageOf(httpError(400, 'x'.repeat(500)))
+    expect(message).toHaveLength(200)
+    expect(message?.endsWith('…')).toBe(true)
   })
 })

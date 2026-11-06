@@ -103,6 +103,18 @@ describe('ValidatorTimeline', () => {
     expect(rowOf(100n)).toHaveTextContent(new RegExp(`^${dateOf(100n)}100$`))
   })
 
+  it("says once why a page's descriptions failed, and keeps its rows' dates", async () => {
+    const unsupported = Object.assign(new Error('refused'), { name: 'DTUnsupportedError' })
+    mockSdk.ghost.atRounds.mockRejectedValueOnce(unsupported)
+    renderTimeline()
+    expect(
+      await screen.findByText(
+        "Couldn't say what some changes did. The read node doesn't support this.",
+      ),
+    ).toBeInTheDocument()
+    expect(rowOf(200n)).toHaveTextContent(new RegExp(`^${dateOf(200n)}200$`))
+  })
+
   it('shows the rows with their dates while their descriptions load', async () => {
     mockSdk.ghost.atRounds.mockImplementationOnce(() => new Promise(() => {}))
     renderTimeline()

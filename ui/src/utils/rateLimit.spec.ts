@@ -16,6 +16,24 @@ describe('isRateLimitError', () => {
     expect(isRateLimitError(new Error('Received status 429: Too Many Requests'))).toBe(true)
   })
 
+  it("treats a busy node as load, but not history the node can't serve", () => {
+    const busy = {
+      status: 503,
+      message: 'Received status 503',
+      response: { status: 503, text: '{"message":"the node is busy: try again later"}' },
+    }
+    const history = {
+      status: 503,
+      message: 'Received status 503',
+      response: { status: 503, text: '{"message":"the box index is incomplete"}' },
+    }
+    expect(isRateLimitError(busy)).toBe(true)
+    expect(isRateLimitError(history)).toBe(false)
+    expect(isRateLimitError(Object.assign(new Error('ghostkit: 503'), { cause: history }))).toBe(
+      false,
+    )
+  })
+
   it('ignores everything else', () => {
     expect(isRateLimitError({ response: { status: 404 } })).toBe(false)
     expect(isRateLimitError(new Error('box not found'))).toBe(false)

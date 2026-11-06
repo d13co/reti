@@ -13,6 +13,7 @@ import { Warp, type WarpHandle } from '@/components/TimeTravel/Warp'
 import { usePendingRound } from '@/hooks/useAtRound'
 import { useSetRound } from '@/hooks/useSetRound'
 import { dayjs } from '@/utils/dayjs'
+import { nodeMessageOf, readFailureMessage } from '@/utils/readErrors'
 import { parseRound } from '@/utils/round'
 import { cn } from '@/utils/ui'
 
@@ -37,7 +38,7 @@ export function TimeTravelControl({ className }: TimeTravelControlProps) {
   const [month, setMonth] = React.useState<Date>(new Date())
   const [time, setTime] = React.useState('12:00')
   const [roundInput, setRoundInput] = React.useState('')
-  const [error, setError] = React.useState<string>()
+  const [error, setError] = React.useState<{ message: string; detail?: string }>()
   const [isBusy, setIsBusy] = React.useState(false)
   // The starfield over the page while "Go to date" travels, and where to
   const [warp, setWarp] = React.useState<string>()
@@ -122,7 +123,11 @@ export function TimeTravelControl({ className }: TimeTravelControlProps) {
     } catch (e) {
       // Only the latest search reports: a cancelled one was replaced or closed
       if (signal.aborted) return 'cancelled'
-      setError(e instanceof Error ? e.message : String(e))
+      // A named reason rather than ghostkit's wrapper text, with the node's own words below
+      setError({
+        message: readFailureMessage(e) ?? (e instanceof Error ? e.message : String(e)),
+        detail: nodeMessageOf(e),
+      })
       return 'failed'
     } finally {
       if (searchRef.current === search) {
@@ -286,7 +291,12 @@ export function TimeTravelControl({ className }: TimeTravelControlProps) {
                 Go to round
               </Button>
             </form>
-            {error && <p className="max-w-[16rem] text-xs text-destructive">{error}</p>}
+            {error && (
+              <div className="max-w-[16rem] text-xs">
+                <p className="text-destructive">{error.message}</p>
+                {error.detail && <p className="mt-0.5 text-muted-foreground">{error.detail}</p>}
+              </div>
+            )}
             {pinned && (
               <Button
                 size="sm"

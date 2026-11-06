@@ -1,5 +1,5 @@
-import { isHistoryUnavailable, isTimeLimitExceeded } from 'algosdk'
-import { isRoundUnavailable } from '@/utils/round'
+import { isHistoryUnavailable, isNodeBusy, isTimeLimitExceeded } from 'algosdk'
+import { isRoundUnavailable, roundUnavailableMessage } from '@/utils/round'
 
 /**
  * Read errors arrive wrapped: ghostkit wraps the HTTP error in a `GhostkitError` (`cause`), the
@@ -65,4 +65,53 @@ export function isFinalReadError(error: unknown): boolean {
  */
 export function retryRead(failureCount: number, error: Error): boolean {
   return failureCount < 3 && !isRoundUnavailable(error) && !isFinalReadError(error)
+}
+
+/** Why a read failed, in a sentence for the viewer, or undefined when it's nothing we can name. */
+export function readFailureMessage(error: unknown): string | undefined {
+  for (const e of causes(error)) {
+    if (isRoundUnavailable(e)) return roundUnavailableMessage(e)
+    if (isNodeBusy(e)) return 'The node is busy. Try again in a moment.'
+    if (isHistoryUnavailable(e)) return "The node can't serve this history right now."
+    if (isTimeLimitExceeded(e)) return 'This took longer than the node allows.'
+    const name = (e as { name?: unknown } | null)?.name
+    if (name === 'DTUnsupportedError' || name === 'DTNotAvailableError') {
+      return "The read node doesn't support this."
+    }
+  }
+  return undefined
+}
+
+const MAX_NODE_MESSAGE_LENGTH = 200
+
+function nodeMessageHere(error: unknown): string | undefined {
+  if (!error || typeof error !== 'object') return undefined
+  const response = (error as { response?: { text?: unknown; body?: unknown } | null }).response
+  if (!response) return undefined
+  let body: unknown = response.body
+  if (typeof response.text === 'string') {
+    try {
+      body = JSON.parse(response.text)
+    } catch {
+      return undefined
+    }
+  }
+  const message = (body as { message?: unknown } | null)?.message
+  return typeof message === 'string' && message.trim() !== '' ? message.trim() : undefined
+}
+
+/**
+ * The node's own message for a failed read (its JSON error body's `message`, e.g. "the box index
+ * is incomplete"), shortened to fit under a sentence, or undefined when the node sent none.
+ */
+export function nodeMessageOf(error: unknown): string | undefined {
+  for (const e of causes(error)) {
+    const message = nodeMessageHere(e)
+    if (message !== undefined) {
+      return message.length > MAX_NODE_MESSAGE_LENGTH
+        ? `${message.slice(0, MAX_NODE_MESSAGE_LENGTH - 1)}…`
+        : message
+    }
+  }
+  return undefined
 }

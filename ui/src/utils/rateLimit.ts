@@ -1,3 +1,6 @@
+import { isHistoryUnavailable } from 'algosdk'
+import { causes } from '@/utils/readErrors'
+
 /**
  * Upstreams the dashboard fans out to. Limits are learned per host because they are separate
  * services with separate budgets - a 429 from NFD says nothing about what algod can take.
@@ -39,6 +42,10 @@ const RATE_LIMIT_STATUSES = new Set([429, 503])
  */
 export function isRateLimitError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
+    return false
+  }
+  // A 503 for history the node can't serve is not load: don't shrink the batch for it
+  if (causes(error).some(isHistoryUnavailable)) {
     return false
   }
 

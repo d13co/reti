@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { useWallet } from '@txnlab/use-wallet-react'
+import { ReadFailure } from '@/components/ReadFailure'
 import { RefreshOverlay } from '@/components/RefreshOverlay'
 import { StakeHistoryNote, StakeHistoryTable } from '@/components/StakeHistory/StakeHistoryTable'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -56,7 +57,7 @@ export function YourHistory({ validator }: YourHistoryProps) {
       </CardHeader>
       <CardContent className="space-y-3">
         {query.isError && (
-          <p className="text-sm text-destructive">Couldn&apos;t load the whole history</p>
+          <ReadFailure title="Couldn't load the whole history" error={query.error} />
         )}
         <StakeHistoryTable
           events={history.events.slice(0, MAX_ROWS)}

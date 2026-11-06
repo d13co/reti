@@ -15,6 +15,7 @@ import {
 } from '@/api/history'
 import { timeTravelSupportQueryOptions } from '@/api/reti'
 import { Loading } from '@/components/Loading'
+import { ReadFailure } from '@/components/ReadFailure'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton, SkeletonText } from '@/components/ui/skeleton'
@@ -287,7 +288,7 @@ export const TotalsHistory = React.memo(function TotalsHistory({
           target={target}
           range={shown}
           extent={extentQuery.isPlaceholderData ? undefined : extent}
-          extentFailed={extentQuery.isError}
+          extentError={extentQuery.error}
           stacked={stacked}
         />
       </CardContent>
@@ -300,7 +301,8 @@ interface HistoryChartsProps {
   range: HistoryRange
   /** Undefined while it loads */
   extent: SeriesExtent | null | undefined
-  extentFailed: boolean
+  /** Why the extent failed to load, if it did */
+  extentError: Error | null
   stacked?: boolean
 }
 
@@ -309,7 +311,7 @@ interface HistoryChartsProps {
  * rest of the points, with a small spinner in the corner meanwhile. A new round keeps the old
  * charts up until the new ones draw.
  */
-function HistoryCharts({ target, range, extent, extentFailed, stacked }: HistoryChartsProps) {
+function HistoryCharts({ target, range, extent, extentError, stacked }: HistoryChartsProps) {
   const setRound = useSetRound()
 
   const windowQuery = useQuery({
@@ -339,7 +341,12 @@ function HistoryCharts({ target, range, extent, extentFailed, stacked }: History
   // Pending until the coarse pass draws; refining while the rest of the points load
   const pending =
     windowQuery.isPending || (span !== null && coarseQuery.isPending && !coarseQuery.data)
-  const failed = extentFailed || windowQuery.isError || (coarseQuery.isError && !coarseQuery.data)
+  // The first of the extent, window and coarse reads to fail, if any
+  const failure =
+    extentError ??
+    windowQuery.error ??
+    (coarseQuery.isError && !coarseQuery.data ? coarseQuery.error : null)
+  const failed = failure !== null
   const refining =
     !pending &&
     !failed &&
@@ -372,7 +379,7 @@ function HistoryCharts({ target, range, extent, extentFailed, stacked }: History
   const metrics = metricsFor(target)
 
   if (failed) {
-    return <p className="text-sm text-destructive">Couldn&apos;t load history</p>
+    return <ReadFailure title="Couldn't load history" error={failure} />
   }
   if (pending) {
     return <MetricChartsSkeleton metrics={metrics} stacked={stacked} />

@@ -6,6 +6,7 @@ import {
   TimelineTarget,
 } from '@/api/history'
 import { timeTravelSupportQueryOptions } from '@/api/reti'
+import { ReadFailure } from '@/components/ReadFailure'
 import { RefreshOverlay } from '@/components/RefreshOverlay'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -66,6 +67,8 @@ export function ValidatorTimeline({ validator }: ValidatorTimelineProps) {
   }
 
   const pages = changesQuery.data?.pages ?? []
+  // Rows of a failed page show only their date; say why once, above the list
+  const descriptionError = descriptionQueries.find((query) => query.isError)?.error
   const changes = pages.flatMap((page) => page.changes)
   // The change that produced what's on screen: the newest one at or before the round
   const shownChange = round === undefined ? undefined : changes[0]?.round
@@ -80,11 +83,18 @@ export function ValidatorTimeline({ validator }: ValidatorTimelineProps) {
         {changesQuery.isPending ? (
           <TimelineRowsSkeleton />
         ) : changesQuery.isError ? (
-          <p className="text-sm text-destructive">Couldn&apos;t load changes</p>
+          <ReadFailure title="Couldn't load changes" error={changesQuery.error} />
         ) : changes.length === 0 ? (
           <p className="text-sm text-muted-foreground">No changes yet.</p>
         ) : (
           <ScrollArea className="h-80 pr-3">
+            {descriptionError && (
+              <ReadFailure
+                title="Couldn't say what some changes did"
+                error={descriptionError}
+                className="mb-2 px-2"
+              />
+            )}
             <ol className="space-y-0.5" data-test-id="validator-timeline">
               {pages.flatMap((page, pageIndex) => {
                 const descriptions = descriptionQueries[pageIndex]
